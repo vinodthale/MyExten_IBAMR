@@ -1,0 +1,43 @@
+# Build directories
+build/
+build-*/
+cmake-build-*/
+
+# Results and outputs
+results/
+*.log
+*.out
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# IBAMR outputs
+viz_*/
+dumps/
+restart/
+*.visit
+*.samrai
+*.h5
+*.xmf
+
+# Temporary files
+*.swp
+*.swo
+*~
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Reports (optional - comment out if you want to track generated reports)
+# Compatibility_Report.md
+# Compatibility_Report.pdf
