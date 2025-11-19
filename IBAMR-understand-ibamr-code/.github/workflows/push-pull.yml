@@ -1,0 +1,433 @@
+## ---------------------------------------------------------------------
+##
+## Copyright (c) 2021 - 2025 by the IBAMR developers
+## All rights reserved.
+##
+## This file is part of IBAMR.
+##
+## IBAMR is free software and is distributed under the 3-clause BSD
+## license. The full text of the license can be found in the file
+## COPYRIGHT at the top level directory of IBAMR.
+##
+## ---------------------------------------------------------------------
+
+name: Pull/push
+on:
+  # Trigger the workflow on push or pull request,
+  # but only when targeting the master branch
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  # build IBAMR with CMake and run tests
+  build_ibamr_cmake_016:
+    runs-on: ubuntu-latest
+    name: Build IBAMR and run tests (0.18 dependencies ${{ matrix.name }})
+    strategy:
+      matrix:
+        include:
+          - name: "Arch Linux 2025, with libMesh"
+            key: "arch-cmake-libmesh"
+            cmake_flags: "-DLIBMESH_ROOT=/libmesh -DLIBMESH_METHOD=devel"
+            cxx_flags: "-ftrivial-auto-var-init=pattern -fuse-ld=mold -D_FORTIFY_SOURCE=3"
+            os: "archlinux"
+          - name: "Arch Linux 2025, without libMesh"
+            key: "arch-cmake-no-libmesh"
+            cmake_flags: ""
+            cxx_flags: "-ftrivial-auto-var-init=pattern -fuse-ld=mold -D_FORTIFY_SOURCE=3"
+            os: "archlinux"
+          - name: "Ubuntu 20.04, with libMesh"
+            key: "ubuntu-cmake-libmesh"
+            cmake_flags: "-DLIBMESH_ROOT=/libmesh -DLIBMESH_METHOD=OPT"
+            cxx_flags: ""
+            os: "ubuntu"
+
+    container:
+      image: 'docker://wellsd2/ibamr:ibamr-0.18-dependencies-${{ matrix.os }}'
+    env:
+      CCACHE_MAXSIZE: 250M
+      CCACHE_DIR: /compilationcache
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+        id: git
+      - name: Verify that clang-format was run
+        id: format
+        run: |
+          git config --global --add safe.directory '*'
+          ./scripts/formatting/download-clang-format
+          ./scripts/formatting/check-indentation
+      - name: Populate ccache
+        uses: actions/cache@v4
+        env:
+          cache-name: ccache
+        id: cache
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ibamr-${{ matrix.key }}-feature-cache-${{ github.ref_name }}
+          restore-keys: |
+            ibamr-${{ matrix.key }}-feature-cache-${{ github.ref_name }}
+            ibamr-${{ matrix.key }}-master-cache-
+            ibamr-${{ matrix.key }}-
+            ibamr-
+      - name: Configure IBAMR
+        id: configure
+        run: |
+          mkdir build
+          cd build
+          FLAGS="${{ matrix.cmake_flags }} -DHYPRE_ROOT=/petsc/ -DPETSC_ROOT=/petsc/ -DSAMRAI_ROOT=/samrai"
+          # add a subshell to ensure flags are passed as separate arguments
+          cmake $(echo "$FLAGS") -DNUMDIFF_ROOT=/numdiff/ \
+                -GNinja -DCMAKE_CXX_COMPILER_LAUNCHER="$(which ccache)" \
+                -DCMAKE_CXX_FLAGS="-O1 -Wall -Wextra -Wpedantic -Werror -Wno-deprecated-declarations -D_GLIBCXX_ASSERTIONS ${{ matrix.cxx_flags }}" \
+                -DCMAKE_Fortran_FLAGS="-O3 -Wall -Wextra -Wpedantic -Werror -Wno-unused-parameter -Wno-compare-reals" \
+                ../
+          ccache --show-stats
+      - name: Compile IBAMR
+        id: build-library
+        run: |
+          cd build
+          ninja -j4
+          ccache --show-stats
+      - name: Compile IBAMR tests
+        id: build-tests
+        run: |
+          cd build
+          ninja -j4 tests
+          ccache --show-stats
+      - name: Test IBAMR
+        id: test
+        run: |
+          cd build
+          runuser -u build -- ./attest --verbose --test-timeout=120 -j4 -E 'mpirun=[3-9]|explicit_ex2_3d|explicit_ex5_3d|explicit_ex8_2d|nwt_cylinder|cib_double_shell.in|cib_double_shell.cholesky.in|poiseuille_flow'
+          ccache --show-stats
+      - name: Install IBAMR
+        id: install
+        run: |
+          cd build
+          ninja install
+      - name: compile a sample project with an uninstalled IBAMR
+        id: sampleproject1
+        run: |
+          mkdir sample-project
+          cd sample-project
+          cp ../.github/project-template/CMakeLists.txt ./
+          cp ../.github/project-template/project.cpp ./
+          cmake -DIBAMR_ROOT=/build/ibamr .
+          make
+          ./project
+      - name: compile a sample project with an installed IBAMR
+        id: sampleproject2
+        run: |
+          mkdir sample-project2
+          cd sample-project2
+          cp ../.github/project-template/CMakeLists.txt ./
+          cp ../.github/project-template/project.cpp ./
+          cmake -DIBAMR_ROOT=/ibamr .
+          make
+          ./project
+
+  # build IBAMR with autotools
+  build_ibamr_archlinux_016_autotools:
+    runs-on: ubuntu-latest
+    name: Build IBAMR and run tests (autotools, 0.18 dependencies, Arch Linux 2025)
+    container:
+      image: 'docker://wellsd2/ibamr:ibamr-0.18-dependencies-archlinux'
+    env:
+      CCACHE_MAXSIZE: 250M
+      CCACHE_DIR: /compilationcache
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+        id: git
+      - name: Verify that clang-format was run
+        id: format
+        run: |
+          git config --global --add safe.directory '*'
+          ./scripts/formatting/download-clang-format
+          ./scripts/formatting/check-indentation
+      - name: Populate ccache
+        uses: actions/cache@v4
+        env:
+          cache-name: ccache
+        id: cache
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ibamr-arch-autotools-libmesh-feature-cache-${{ github.ref_name }}
+          restore-keys: |
+            ibamr-arch-autotools-libmesh-feature-cache-${{ github.ref_name }}
+            ibamr-arch-autotools-libmesh-master-cache-
+            ibamr-arch-autotools-libmesh-
+            ibamr-
+      - name: Configure IBAMR
+        id: configure
+        run: |
+          export CC="ccache $(which mpicc)"
+          export CXX="ccache $(which mpic++)"
+          # we are just compiling things so go for speed
+          export CFLAGS="-O0"
+          export CXXFLAGS="-O0"
+          export FFLAGS="-O0"
+          mkdir build
+          cd build
+          ../configure PETSC_DIR=/petsc/ --with-samrai=/samrai \
+          --enable-libmesh --with-libmesh=/libmesh --with-libmesh-method=devel
+          ccache --show-stats
+      - name: Compile IBAMR
+        id: build-library
+        run: |
+          cd build
+          make -j4
+          ccache --show-stats
+      - name: Compile IBAMR tests
+        id: build-tests
+        run: |
+          cd build
+          make -j4 tests
+          ccache --show-stats
+      - name: Compile IBAMR examples
+        id: build-examples
+        run: |
+          cd build
+          make -j4 examples
+          ccache --show-stats
+
+  # build on macOS
+  macos:
+    runs-on: macos-15
+    name: Build IBAMR (macOS 15)
+    env:
+      CCACHE_MAXSIZE: 250M
+      CCACHE_DIR: /tmp/ibamr-ccache
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+        id: git
+      - name: Verify that clang-format was run
+        id: format
+        run: |
+          git config --global --add safe.directory '*'
+      - name: Populate ccache
+        uses: actions/cache@v4
+        env:
+          cache-name: ccache
+        id: cache
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ibamr-macos-feature-cache-${{ github.ref_name }}
+          restore-keys: |
+            ibamr-macos-feature-cache-${{ github.ref_name }}
+            ibamr-macos-master-cache-
+            ibamr-macos-
+      - name: setup homebrew dependencies
+        run: |
+          # Work around issues with homebrew dependencies being pre-installed by
+          # GitHub
+          brew update
+          for DEPENDENCY in ccache cmake curl gcc hdf5-mpi hypre ninja open-mpi petsc
+          do
+            brew list "$DEPENDENCY" 1>/dev/null 2>&1 || brew install "$DEPENDENCY"
+          done
+      - name: list HDF5 info
+        run: |
+          brew --prefix hdf5-mpi
+          file $(brew --prefix hdf5-mpi)
+          ls $(brew --prefix hdf5-mpi)
+          find $(brew --prefix hdf5-mpi)
+      - name: list gfortran info
+        run: |
+          echo "brew --prefix gcc"
+          brew --prefix gcc
+          echo "file $(brew --prefix gcc)"
+          file $(brew --prefix gcc)
+          echo "ls $(brew --prefix gcc)"
+          ls $(brew --prefix gcc)
+          echo "find -L $(brew --prefix gcc) -name gfortran"
+          find -L $(brew --prefix gcc) -name gfortran
+      - name: Install SAMRAI
+        run: |
+          mkdir -p ~/unpack-samrai
+          cd ~/unpack-samrai
+          export SAMRAI_VERSION=2025.10.29
+          curl -LO "https://github.com/IBAMR/IBSAMRAI2/archive/refs/tags/$SAMRAI_VERSION.tar.gz"
+          tar xf "$SAMRAI_VERSION.tar.gz"
+          cd "IBSAMRAI2-$SAMRAI_VERSION"
+          mkdir -p build
+          cd build
+
+          export CC="$(which mpicc)"
+          export CXX="$(which mpic++)"
+          export FC="$(find -L $(brew --prefix gcc) -name gfortran)"
+          export CFLAGS="-fPIC -O1"
+          export CXXFLAGS="-fPIC -O1 -std=c++11"
+          export FFLAGS="-fPIC -O1"
+          mkdir -p "$HOME/Applications"
+          ../configure --prefix="$HOME/Applications/samrai" \
+             --with-F77="$FC"                               \
+             --with-hdf5="$(brew --prefix hdf5-mpi)"        \
+             --without-hypre                                \
+             --enable-shared=on                             \
+             --without-blaslapack                           \
+             --without-cubes                                \
+             --without-eleven                               \
+             --without-petsc                                \
+             --without-sundials                             \
+             --without-x                                    \
+             --with-doxygen                                 \
+             --enable-dcomplex                              \
+             --enable-debug                                 \
+             --disable-opt                                  \
+             --enable-implicit-template-instantiation       \
+             --enable-dcomplex                              \
+             --disable-deprecated
+
+          make -j4
+          make -j4 install
+      - name: Configure IBAMR
+        id: configure
+        run: |
+          STARTING_DIRECTORY="$(pwd)"
+          rm -rf build
+          mkdir -p build
+          cd build
+          set +e
+          WARNING_FLAGS="-Wall -Wextra -Wpedantic -Werror"
+          cmake                                                                                   \
+              -GNinja                                                                             \
+              -DCMAKE_C_COMPILER="$(which mpicc)"                                                 \
+              -DCMAKE_C_FLAGS="-std=c17"                                                          \
+              -DCMAKE_CXX_COMPILER="$(which mpic++)"                                              \
+              -DCMAKE_CXX_COMPILER_LAUNCHER="$(which ccache)"                                     \
+              -DCMAKE_CXX_FLAGS="-O1 $WARNING_FLAGS -std=c++17"                                   \
+              -DCMAKE_Fortran_COMPILER="$(find -L $(brew --prefix gcc) -name gfortran)"           \
+              -DCMAKE_Fortran_FLAGS="-O2 $WARNING_FLAGS -Wno-unused-parameter -Wno-compare-reals" \
+              -DHDF5_ROOT="$(brew --prefix hdf5-mpi)"                                             \
+              -DHYPRE_ROOT="$(brew --prefix hypre)"                                               \
+              -DPETSC_ROOT="$(brew --prefix petsc)"                                               \
+              -DSAMRAI_ROOT="$HOME/Applications/samrai"                                           \
+              ../
+          configure_status=$?
+          # make it easier to find log files by moving them into our starting directory
+          touch "$STARTING_DIRECTORY/CMakeConfigureLog.yaml"
+          find ./ -name CMakeConfigureLog.yaml -exec cp {} "$STARTING_DIRECTORY" \;
+          touch "$STARTING_DIRECTORY/compile_commands.json"
+          find ./ -name compile_commands.json  -exec cp {} "$STARTING_DIRECTORY" \;
+          set -e
+          ccache --show-stats
+          exit $configure_status
+      - name: Archive CMakeConfigureLog.yaml
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-CMakeConfigureLog.yaml
+          path: CMakeConfigureLog.yaml
+      - name: Archive compile_commands.json
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-compile_commands.json
+          path: compile_commands.json
+      - name: Compile library
+        id: compile-library
+        run: |
+          cd build
+          ninja -j4
+          ccache --show-stats
+
+  # test that all headers compile independently of each-other and contain ibtk/config.h or ibamr/config.h
+  build_ibamr_archlinux_header_checks:
+    runs-on: ubuntu-latest
+    name: Basic header checks
+    container:
+      image: 'docker://wellsd2/ibamr:ibamr-0.18-dependencies-archlinux'
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v3
+        id: git
+      - name: Verify that clang-format was run
+        id: format
+        run: |
+          git config --global --add safe.directory '*'
+          ./scripts/formatting/download-clang-format
+          ./scripts/formatting/check-indentation
+      - name: Configure IBAMR
+        id: configure
+        run: |
+          mkdir build
+          cd build
+          FLAGS="-DLIBMESH_ROOT=/libmesh -DLIBMESH_METHOD=devel -DHYPRE_ROOT=/petsc/ -DPETSC_ROOT=/petsc/ -DSAMRAI_ROOT=/samrai"
+          # add a subshell to ensure flags are passed as separate arguments
+          cmake $(echo "$FLAGS") -GNinja ../
+      - name: Verify that headers can be compiled independently
+        id: header-check-compilation
+        run: |
+          print_and_check() {
+              echo $1
+              /usr/bin/mpic++ -O0 -fsyntax-only -DNDIM=2 \
+                -I/samrai/include                        \
+                -I/petsc/include                         \
+                -I/libmesh/include                       \
+                -I/usr/include/eigen3                    \
+                -I./build/ibtk/include                   \
+                -I./ibtk/include                         \
+                -I./include                              \
+                $1
+              status=$?
+              if [ $status -ne 0 ]; then
+                  echo "Header check failed for $1. This usually means a #include is missing."
+                  exit 255
+              else
+                  exit 0
+              fi
+          }
+          export -f print_and_check
+
+          find ./ibtk/include/ibtk -name '*.h' -print0 | xargs -0 -L1 -P4 bash -c 'print_and_check "$0"'
+          find ./include/ibamr -name '*.h' -print0 | xargs -0 -L1 -P4 bash -c 'print_and_check "$0"'
+      - name: Verify that headers contain the correct config file
+        id: header-check-config
+        run: |
+          print_and_check() {
+              grep -q "#include .$1/config.h." "$2"
+              status=$?
+              if [ $status -eq 0 ];
+              then
+                  echo "$2"
+                  exit 0
+              else
+                  echo "$2 is missing #include <$1/config.h>: please add it."
+                  exit 255
+              fi
+          }
+          export -f print_and_check
+
+          find ./ibtk/include/ibtk -name '*.h' -print0 | xargs -0 -L1 -P4 bash -c 'print_and_check ibtk "$0"'
+          find ./include/ibamr -name '*.h' -print0 | grep -v --null-data 'config.h' | xargs -0 -L1 -P4 bash -c 'print_and_check ibamr "$0"'
+      - name: Verify that headers do not include namespaces.h nor app_namespaces.h
+        id: header-check-namespaces-files
+        run: |
+          print_and_check() {
+              echo $1
+              for DIRECTORY in ibamr ibtk
+              do
+                  for HEADER in namespaces.h app_namespaces.h
+                  do
+                      grep -q " *# *include *.$DIRECTORY/$HEADER" "$1"
+                      status=$?
+                      if [ $status -eq 0 ]; then
+                          echo "$1 includes $HEADER, which is not permitted - $HEADER may only be used in source files."
+                          exit 255
+                      fi
+                  done
+              done
+              exit 0
+          }
+          export -f print_and_check
+
+          # exclude the namespace headers themselves
+          find ./ibtk/include/ibtk -name '*.h' -print0 | grep -EvZz 'ibtk/app_namespaces.h' | xargs -0 -L1 -P4 bash -c 'print_and_check "$0"'
+          find ./include/ibamr -name '*.h' -print0 | grep -EvZz 'ibamr/(app_)?namespaces.h' | xargs -0 -L1 -P4 bash -c 'print_and_check "$0"'
