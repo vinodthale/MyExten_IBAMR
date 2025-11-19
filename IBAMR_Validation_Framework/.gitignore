@@ -37,7 +37,3 @@ restart/
 .vscode/
 .idea/
 *.iml
-
-# Reports (optional - comment out if you want to track generated reports)
-# Compatibility_Report.md
-# Compatibility_Report.pdf
