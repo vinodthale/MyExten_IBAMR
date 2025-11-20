@@ -132,16 +132,10 @@ jobs:
     # ---------------------------------------------------------
     # Build Test Suites
     # ---------------------------------------------------------
-    - name: Build: IBAMR_Validation_Framework
+    - name: Setup Python dependencies for Validation Framework
       run: |
-        cd IBAMR_Validation_Framework
-        mkdir -p build
-        cd build
-        cmake .. \
-          -DIBAMR_DIR=${GITHUB_WORKSPACE}/IBAMR-0.18.0/build \
-          -DPETSC_DIR=/home/runner/petsc \
-          -DPETSC_ARCH=arch-linux-c-opt
-        make -j$(nproc)
+        python3 -m pip install --upgrade pip
+        python3 -m pip install numpy scipy matplotlib h5py
 
     - name: Build: IBAMR-understand-ibamr-code
       run: |
@@ -174,7 +168,6 @@ jobs:
         name: ibamr-binaries
         path: |
           IBAMR-0.18.0/build/**
-          IBAMR_Validation_Framework/build/**
           IBAMR-understand-ibamr-code/build/**
           ScalarTransport_TestSuite_Standalone/build/**
         retention-days: 7
