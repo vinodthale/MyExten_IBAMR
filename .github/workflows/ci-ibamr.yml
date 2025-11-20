@@ -1,0 +1,121 @@
+name: Build & Test IBAMR Extensions
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'IBAMR-0.18.0/**'
+      - 'IBAMR_Validation_Framework/**'
+      - 'IBAMR-understand-ibamr-code/**'
+      - 'ScalarTransport_TestSuite_Standalone/**'
+      - '.github/workflows/ci-ibamr.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'IBAMR-0.18.0/**'
+      - 'IBAMR_Validation_Framework/**'
+      - 'IBAMR-understand-ibamr-code/**'
+      - 'ScalarTransport_TestSuite_Standalone/**'
+      - '.github/workflows/ci-ibamr.yml'
+
+jobs:
+
+  build-ibamr:
+    name: Build IBAMR + All Test Suites
+    runs-on: ubuntu-22.04
+
+    steps:
+
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # ----------------------------------------------------------
+    # Install system dependencies
+    # ----------------------------------------------------------
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+            gcc g++ cmake make pkg-config \
+            liblapack-dev libblas-dev \
+            libboost-all-dev \
+            libhdf5-dev \
+            libeigen3-dev \
+            libpetsc-dev \
+            libpetsc-complex-dev \
+            libopenmpi-dev openmpi-bin \
+            libtbb-dev \
+            libxsmm-dev \
+            python3 python3-pip
+
+    # ----------------------------------------------------------
+    # Cache IBAMR build directory
+    # ----------------------------------------------------------
+    - name: Cache IBAMR Build
+      id: cache-ibamr
+      uses: actions/cache@v4
+      with:
+        path: IBAMR-0.18.0/build
+        key: ${{ runner.os }}-ibamr-${{ hashFiles('IBAMR-0.18.0/**') }}
+        restore-keys: |
+          ${{ runner.os }}-ibamr-
+
+    # ----------------------------------------------------------
+    # Configure & Build IBAMR
+    # ----------------------------------------------------------
+    - name: Build IBAMR from local vendor source
+      if: steps.cache-ibamr.outputs.cache-hit != 'true'
+      run: |
+        echo "Configuring IBAMR..."
+        cd IBAMR-0.18.0
+        mkdir -p build
+        cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release
+        make -j$(nproc)
+
+    - name: Verify IBAMR Build
+      run: |
+        ls -lah IBAMR-0.18.0/build/lib || exit 1
+
+    # ----------------------------------------------------------
+    # Build All Simulation/Test Frameworks
+    # ----------------------------------------------------------
+
+    - name: Build IBAMR_Validation_Framework simulations
+      run: |
+        cd IBAMR_Validation_Framework
+        mkdir -p build
+        cd build
+        cmake .. -DIBAMR_DIR=${GITHUB_WORKSPACE}/IBAMR-0.18.0/build
+        make -j$(nproc)
+
+    - name: Build IBAMR-understand-ibamr-code examples
+      run: |
+        cd "IBAMR-understand-ibamr-code"
+        mkdir -p build
+        cd build
+        cmake .. -DIBAMR_DIR=${GITHUB_WORKSPACE}/IBAMR-0.18.0/build
+        make -j$(nproc)
+
+    - name: Build ScalarTransport_TestSuite_Standalone
+      run: |
+        cd ScalarTransport_TestSuite_Standalone
+        mkdir -p build
+        cd build
+        cmake .. -DIBAMR_DIR=${GITHUB_WORKSPACE}/IBAMR-0.18.0/build
+        make -j$(nproc)
+
+    # ----------------------------------------------------------
+    # Upload Compiled Results
+    # ----------------------------------------------------------
+
+    - name: Upload All Compiled Binaries
+      uses: actions/upload-artifact@v4
+      with:
+        name: ibamr-compiled-binaries
+        path: |
+          IBAMR-0.18.0/build/**
+          IBAMR_Validation_Framework/build/**
+          IBAMR-understand-ibamr-code/build/**
+          ScalarTransport_TestSuite_Standalone/build/**
+        retention-days: 7
