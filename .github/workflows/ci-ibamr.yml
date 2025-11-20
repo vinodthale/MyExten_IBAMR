@@ -137,7 +137,7 @@ jobs:
         python3 -m pip install --upgrade pip
         python3 -m pip install numpy scipy matplotlib h5py
 
-    - name: Build: IBAMR-understand-ibamr-code
+    - name: "Build: IBAMR-understand-ibamr-code"
       run: |
         cd IBAMR-understand-ibamr-code
         mkdir -p build
@@ -148,7 +148,7 @@ jobs:
           -DPETSC_ARCH=arch-linux-c-opt
         make -j$(nproc)
 
-    - name: Build: ScalarTransport_TestSuite_Standalone
+    - name: "Build: ScalarTransport_TestSuite_Standalone"
       run: |
         cd ScalarTransport_TestSuite_Standalone
         mkdir -p build
