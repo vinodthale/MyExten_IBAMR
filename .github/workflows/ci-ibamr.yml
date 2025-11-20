@@ -77,7 +77,6 @@ jobs:
         cp -r /home/runner/petsc-src/petsc-3.17.5 petsc
         cd petsc
 
-        # Absolute paths (required)
         export PETSC_DIR=/home/runner/petsc
         export PETSC_ARCH=arch-linux-c-opt
 
@@ -91,7 +90,7 @@ jobs:
           --download-superlu_dist \
           --download-fblaslapack
 
-        make all -j4
+        make all -j$(nproc)
         make test
 
     # ---------------------------------------------------------
@@ -99,9 +98,9 @@ jobs:
     # ---------------------------------------------------------
     - name: Verify PETSc build
       run: |
-        ls -lah /home/runner/petsc
         echo "PETSC_DIR=$PETSC_DIR"
         echo "PETSC_ARCH=$PETSC_ARCH"
+        ls -lah /home/runner/petsc
 
     # ---------------------------------------------------------
     # Cache IBAMR build directory
@@ -179,3 +178,4 @@ jobs:
           IBAMR-understand-ibamr-code/build/**
           ScalarTransport_TestSuite_Standalone/build/**
         retention-days: 7
+
