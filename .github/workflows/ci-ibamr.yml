@@ -13,8 +13,7 @@ jobs:
     env:
       PETSC_DIR: /home/runner/petsc
       PETSC_ARCH: arch-linux-c-opt
-      HYPRE_INC: /home/runner/petsc/arch-linux-c-opt/include
-      HYPRE_LIB: /home/runner/petsc/arch-linux-c-opt/lib/libHYPRE.so
+      HYPRE_ROOT: /home/runner/petsc/arch-linux-c-opt
 
     steps:
     # ---------------------------------------------------------
@@ -95,13 +94,16 @@ jobs:
         make test
 
     # ---------------------------------------------------------
-    # Verify PETSc
+    # Verify PETSc and HYPRE
     # ---------------------------------------------------------
-    - name: Verify PETSc
+    - name: Verify PETSc and HYPRE
       run: |
         ls -lah $PETSC_DIR
         echo "Using PETSC_ARCH=$PETSC_ARCH"
-        echo "HYPRE headers at $HYPRE_INC"
+        echo "HYPRE_ROOT=$HYPRE_ROOT"
+        echo "Checking for HYPRE files..."
+        ls -lah $HYPRE_ROOT/include/HYPRE*.h || echo "HYPRE headers not found"
+        ls -lah $HYPRE_ROOT/lib/libHYPRE.* || echo "HYPRE library not found"
 
     # ---------------------------------------------------------
     # Cache IBAMR build
@@ -127,8 +129,7 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release \
           -DPETSC_DIR=$PETSC_DIR \
           -DPETSC_ARCH=$PETSC_ARCH \
-          -DHYPRE_INCLUDE_DIR=$HYPRE_INC \
-          -DHYPRE_LIBRARY=$HYPRE_LIB
+          -DHYPRE_ROOT=$HYPRE_ROOT
 
         make -j$(nproc)
 
@@ -202,8 +203,7 @@ jobs:
           -DCMAKE_CXX_FLAGS="-fsanitize=address" \
           -DPETSC_DIR=$PETSC_DIR \
           -DPETSC_ARCH=$PETSC_ARCH \
-          -DHYPRE_INCLUDE_DIR=$HYPRE_INC \
-          -DHYPRE_LIBRARY=$HYPRE_LIB
+          -DHYPRE_ROOT=$HYPRE_ROOT
         make -j$(nproc)
 
     # ---------------------------------------------------------
