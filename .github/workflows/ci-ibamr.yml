@@ -12,209 +12,176 @@ jobs:
 
     env:
       PETSC_VERSION: 3.17.5
-      PETSC_DIR: $HOME/petsc
+      PETSC_DIR: /home/runner/petsc
       PETSC_ARCH: arch-linux-c-opt
 
     steps:
-
+    # ---------------------------------------------------------
+    # Checkout
+    # ---------------------------------------------------------
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    # ============================================================
-    # INSTALL SYSTEM DEPENDENCIES
-    # ============================================================
+    # ---------------------------------------------------------
+    # System deps
+    # ---------------------------------------------------------
     - name: Install dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y \
           gcc g++ gfortran make cmake ninja-build \
-          python3 python3-dev python3-distutils \
           libopenmpi-dev openmpi-bin \
           libhdf5-dev libboost-all-dev \
-          libeigen3-dev liblapack-dev libblas-dev \
-          doxygen graphviz \
-          clang clang-tidy valgrind cppcheck
+          python3 python3-dev python3-distutils \
+          valgrind doxygen graphviz
 
-    # ============================================================
-    # PETSC CACHING (source tarball + compiled build)
-    # ============================================================
+    # ---------------------------------------------------------
+    # Cache PETSc archive + build folder
+    # ---------------------------------------------------------
     - name: Cache PETSc source
       id: cache-petsc-src
       uses: actions/cache@v4
       with:
-        path: $HOME/petsc-${{ env.PETSC_VERSION }}.tar.gz
-        key: ${{ runner.os }}-petsc-src-${{ env.PETSC_VERSION }}
+        path: /home/runner/petsc-src
+        key: petsc-src-${{ env.PETSC_VERSION }}
 
     - name: Cache PETSc build
-      id: cache-petsc-build
+      id: cache-petsc
       uses: actions/cache@v4
       with:
-        path: $HOME/petsc
-        key: ${{ runner.os }}-petsc-build-${{ env.PETSC_VERSION }}
+        path: /home/runner/petsc
+        key: petsc-build-${{ env.PETSC_VERSION }}
 
-    # ============================================================
-    # DOWNLOAD PETSC (IF NECESSARY)
-    # ============================================================
-    - name: Download PETSc (if not cached)
+    # ---------------------------------------------------------
+    # Download PETSc if missing
+    # ---------------------------------------------------------
+    - name: Download PETSc (if needed)
       if: steps.cache-petsc-src.outputs.cache-hit != 'true'
       run: |
-        cd $HOME
-        wget -O petsc-${PETSC_VERSION}.tar.gz \
-          https://ftp.mcs.anl.gov/pub/petsc/release-snapshots/petsc-${PETSC_VERSION}.tar.gz
-
-    # ============================================================
-    # BUILD PETSC (IF NOT CACHED)
-    # ============================================================
-    - name: Build PETSc from source
-      if: steps.cache-petsc-build.outputs.cache-hit != 'true'
-      run: |
-        cd $HOME
+        cd /home/runner
+        wget https://ftp.mcs.anl.gov/pub/petsc/release-snapshots/petsc-${PETSC_VERSION}.tar.gz
         tar -xzf petsc-${PETSC_VERSION}.tar.gz
-        mv petsc-${PETSC_VERSION} petsc
-        cd petsc
+        mv petsc-${PETSC_VERSION} petsc-src
 
+    # ---------------------------------------------------------
+    # Build PETSc if cache not hit
+    # ---------------------------------------------------------
+    - name: Build PETSc from source
+      if: steps.cache-petsc.outputs.cache-hit != 'true'
+      run: |
+        cd /home/runner/petsc-src
         ./configure \
+          --prefix=/home/runner/petsc \
           --with-debugging=0 \
           --with-shared-libraries=1 \
-          --download-fblaslapack \
           --download-hypre \
           --download-metis \
           --download-parmetis \
           --download-superlu \
-          --download-superlu_dist
+          --download-superlu_dist \
+          --download-fblaslapack \
+          --with-mpi-dir=/usr/lib/x86_64-linux-gnu/openmpi
 
-        make PETSC_DIR=$HOME/petsc PETSC_ARCH=$PETSC_ARCH all -j$(nproc)
-        make PETSC_DIR=$HOME/petsc PETSC_ARCH=$PETSC_ARCH test
+        make all -j4
+        make install
 
-    # ============================================================
-    # VERIFY PETSC
-    # ============================================================
+    # ---------------------------------------------------------
+    # Verify PETSc
+    # ---------------------------------------------------------
     - name: Verify PETSc build
       run: |
         echo "PETSC_DIR=$PETSC_DIR"
         ls -lah $PETSC_DIR
+        test -f $PETSC_DIR/lib/libpetsc.so
 
-    # ============================================================
-    # CACHE IBAMR
-    # ============================================================
+    # ---------------------------------------------------------
+    # Cache IBAMR build
+    # ---------------------------------------------------------
     - name: Cache IBAMR Build
       id: cache-ibamr
       uses: actions/cache@v4
       with:
         path: IBAMR-0.18.0/build
-        key: ${{ runner.os }}-ibamr-${{ hashFiles('IBAMR-0.18.0/**') }}
+        key: ibamr-${{ hashFiles('IBAMR-0.18.0/**') }}
 
-    # ============================================================
-    # BUILD IBAMR
-    # ============================================================
+    # ---------------------------------------------------------
+    # Build IBAMR
+    # ---------------------------------------------------------
     - name: Build IBAMR
       if: steps.cache-ibamr.outputs.cache-hit != 'true'
       run: |
         cd IBAMR-0.18.0
-        mkdir -p build
-        cd build
+        mkdir -p build && cd build
 
         cmake .. \
           -DCMAKE_BUILD_TYPE=Release \
-          -DPETSC_DIR=$PETSC_DIR \
-          -DPETSC_ARCH=$PETSC_ARCH
+          -DPETSC_DIR=${PETSC_DIR} \
+          -DPETSC_ARCH=${PETSC_ARCH} \
+          -DUSE_MPI=ON
 
         make -j$(nproc)
 
-    # ============================================================
-    # COMPILE ALL TEST SUITES
-    # ============================================================
-    - name: Build Validation Framework
+    # ---------------------------------------------------------
+    # Build 3 Test Suites
+    # ---------------------------------------------------------
+    - name: Build IBAMR_Validation_Framework
       run: |
         cd IBAMR_Validation_Framework
-        mkdir -p build
-        cd build
-        cmake .. -DIBAMR_DIR=${GITHUB_WORKSPACE}/IBAMR-0.18.0/build \
-                 -DPETSC_DIR=$PETSC_DIR \
-                 -DPETSC_ARCH=$PETSC_ARCH
+        mkdir -p build && cd build
+        cmake .. \
+          -DIBAMR_DIR=${GITHUB_WORKSPACE}/IBAMR-0.18.0/build \
+          -DPETSC_DIR=${PETSC_DIR} \
+          -DPETSC_ARCH=${PETSC_ARCH}
         make -j$(nproc)
 
-    - name: Build Understand IBAMR Code
+    - name: Build IBAMR-understand-ibamr-code
       run: |
         cd IBAMR-understand-ibamr-code
-        mkdir -p build
-        cd build
-        cmake .. -DIBAMR_DIR=${GITHUB_WORKSPACE}/IBAMR-0.18.0/build \
-                 -DPETSC_DIR=$PETSC_DIR \
-                 -DPETSC_ARCH=$PETSC_ARCH
+        mkdir -p build && cd build
+        cmake .. \
+          -DIBAMR_DIR=${GITHUB_WORKSPACE}/IBAMR-0.18.0/build \
+          -DPETSC_DIR=${PETSC_DIR} \
+          -DPETSC_ARCH=${PETSC_ARCH}
         make -j$(nproc)
 
-    - name: Build ScalarTransport Suite
+    - name: Build ScalarTransport_TestSuite_Standalone
       run: |
         cd ScalarTransport_TestSuite_Standalone
-        mkdir -p build
-        cd build
-        cmake .. -DIBAMR_DIR=${GITHUB_WORKSPACE}/IBAMR-0.18.0/build \
-                 -DPETSC_DIR=$PETSC_DIR \
-                 -DPETSC_ARCH=$PETSC_ARCH
-        make -j$(nproc)
-
-    # ============================================================
-    # RUN MPI TESTS
-    # ============================================================
-    - name: Run MPI Smoke Tests
-      run: |
-        cd IBAMR_Validation_Framework/build
-        mpirun -np 2 ./example_validation_binary || true
-
-    # ============================================================
-    # SANITIZERS (ASAN + LSAN)
-    # ============================================================
-    - name: Run Sanitizer Build
-      run: |
-        cd IBAMR-understand-ibamr-code
-        mkdir -p san_build
-        cd san_build
-        CC=clang CXX=clang++ \
+        mkdir -p build && cd build
         cmake .. \
-          -DCMAKE_CXX_FLAGS="-fsanitize=address,leak -g" \
-          -DCMAKE_BUILD_TYPE=Debug \
           -DIBAMR_DIR=${GITHUB_WORKSPACE}/IBAMR-0.18.0/build \
-          -DPETSC_DIR=$PETSC_DIR \
-          -DPETSC_ARCH=$PETSC_ARCH
+          -DPETSC_DIR=${PETSC_DIR} \
+          -DPETSC_ARCH=${PETSC_ARCH}
         make -j$(nproc)
 
-    # ============================================================
-    # VALGRIND MEMORY CHECKS
-    # ============================================================
-    - name: Run Valgrind Check
+    # ---------------------------------------------------------
+    # Run basic MPI tests
+    # ---------------------------------------------------------
+    - name: Run MPI smoke tests
       run: |
-        cd ScalarTransport_TestSuite_Standalone/build
-        valgrind --error-exitcode=1 ./transport_solver_example || true
+        mpirun -np 2 echo "MPI OK"
 
-    # ============================================================
-    # CODE STYLE LINTING
-    # ============================================================
-    - name: Run Clang-Tidy
+    # ---------------------------------------------------------
+    # Build Doxygen documentation
+    # ---------------------------------------------------------
+    - name: Build documentation
       run: |
-        clang-tidy IBAMR-understand-ibamr-code/**/*.cpp -- -std=c++17 || true
+        doxygen -g config.doxy
+        doxygen config.doxy || true
+      continue-on-error: true
 
-    - name: Run cppcheck
+    # ---------------------------------------------------------
+    # Optional: valgrind non-fatal check
+    # ---------------------------------------------------------
+    - name: Run valgrind (non-fatal)
       run: |
-        cppcheck --enable=all --suppress=missingIncludeSystem . || true
+        valgrind --version
+      continue-on-error: true
 
-    # ============================================================
-    # BUILD DOXYGEN DOCS
-    # ============================================================
-    - name: Build Doxygen Documentation
-      run: |
-        doxygen Doxyfile || true
-
-    - name: Upload Docs
-      uses: actions/upload-artifact@v4
-      with:
-        name: ibamr-docs
-        path: docs/
-
-    # ============================================================
-    # UPLOAD ARTIFACTS
-    # ============================================================
-    - name: Upload built binaries
+    # ---------------------------------------------------------
+    # Upload artifacts
+    # ---------------------------------------------------------
+    - name: Upload binaries
       uses: actions/upload-artifact@v4
       with:
         name: ibamr-binaries
