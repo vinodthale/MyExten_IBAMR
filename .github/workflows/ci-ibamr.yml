@@ -104,6 +104,12 @@ jobs:
         rm -rf /home/runner/IBSAMRAI2-src
         git clone --depth 1 https://github.com/IBAMR/IBSAMRAI2.git /home/runner/IBSAMRAI2-src
 
+    - name: Apply IBSAMRAI2 patches
+      if: steps.cache-samrai-src.outputs.cache-hit != 'true'
+      run: |
+        cd /home/runner/IBSAMRAI2-src
+        patch -p1 < ${{ github.workspace }}/patches/ibsamrai2-hdfdatabase-include.patch
+
     - name: Build IBSAMRAI2 (AUTOMATIC DIM=1,2,3)
       run: |
         set -e
