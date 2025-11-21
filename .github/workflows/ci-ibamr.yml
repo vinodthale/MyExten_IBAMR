@@ -125,9 +125,8 @@ jobs:
         rm -rf /home/runner/IBSAMRAI2-src
         mkdir -p /home/runner/IBSAMRAI2-src
         cd /home/runner/IBSAMRAI2-src
-        # clone the official IBAMR IBSAMRAI2 fork with correct version tag (public repo)
-        git clone --depth 1 --branch v2025.10.29 \
-          https://github.com/IBAMR/IBSAMRAI2.git .
+        # clone the official IBAMR IBSAMRAI2 fork (latest from default branch)
+        git clone --depth 1 https://github.com/IBAMR/IBSAMRAI2.git .
 
     - name: Build IBSAMRAI2 (SAMRAI2) and install
       run: |
