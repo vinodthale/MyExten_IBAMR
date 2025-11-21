@@ -1,0 +1,19 @@
+--- a/source/toolbox/restartdb/HDFDatabaseFactory.C
++++ b/source/toolbox/restartdb/HDFDatabaseFactory.C
+@@ -7,6 +7,7 @@
+ //
+
+ #include "tbox/HDFDatabaseFactory.h"
++#include "tbox/HDFDatabase.h"
+ #include "tbox/Database.h"
+ #include "tbox/Utilities.h"
+
+@@ -32,7 +33,7 @@ Pointer<Database> HDFDatabaseFactory::allocate(
+    const std::string& name)
+ {
+    HDFDatabase* database = new HDFDatabase(name);
+-   return(Pointer<Database>(database));
++   return(Pointer<Database>(static_cast<Database*>(database)));
+ }
+
+ }

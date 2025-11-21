@@ -96,13 +96,19 @@ jobs:
       uses: actions/cache@v4
       with:
         path: /home/runner/IBSAMRAI2-src
-        key: ${{ runner.os }}-ibsamrai2-src-2025-02-20
+        key: ${{ runner.os }}-ibsamrai2-src-2025-02-20-gcc11-patched
 
     - name: Clone IBSAMRAI2 if missing
       if: steps.cache-samrai-src.outputs.cache-hit != 'true'
       run: |
         rm -rf /home/runner/IBSAMRAI2-src
         git clone --depth 1 https://github.com/IBAMR/IBSAMRAI2.git /home/runner/IBSAMRAI2-src
+
+    - name: Apply GCC 11+ compatibility patches to IBSAMRAI2
+      if: steps.cache-samrai-src.outputs.cache-hit != 'true'
+      run: |
+        cd /home/runner/IBSAMRAI2-src
+        patch -p1 < ${{ github.workspace }}/patches/ibsamrai2-gcc11-hdfdatabasefactory.patch
 
     - name: Build IBSAMRAI2 (AUTOMATIC DIM=1,2,3)
       run: |
