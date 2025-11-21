@@ -121,12 +121,15 @@ jobs:
 
     - name: Clone IBSAMRAI2 (if needed)
       if: steps.cache-samrai-src.outputs.cache-hit != 'true'
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         rm -rf /home/runner/IBSAMRAI2-src
-        # clone the official IBAMR SAMRAI2 repository with correct version tag
-        git clone --depth 1 --branch 2025.10.29 \
-          https://github.com/IBAMR/SAMRAI2.git \
-          /home/runner/IBSAMRAI2-src
+        mkdir -p /home/runner/IBSAMRAI2-src
+        cd /home/runner/IBSAMRAI2-src
+        # clone the official IBAMR IBSAMRAI2 fork with correct version tag
+        git clone --depth 1 --branch v2025.10.29 \
+          https://$GH_TOKEN@github.com/IBAMR/IBSAMRAI2.git .
 
     - name: Build IBSAMRAI2 (SAMRAI2) and install
       run: |
