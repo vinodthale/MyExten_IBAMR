@@ -1,0 +1,10 @@
+--- a/source/toolbox/restartdb/HDFDatabaseFactory.C
++++ b/source/toolbox/restartdb/HDFDatabaseFactory.C
+@@ -7,6 +7,7 @@
+ //
+
+ #include "tbox/HDFDatabaseFactory.h"
++#include "tbox/HDFDatabase.h"
+
+ #ifdef DEBUG_NO_INLINE
+ #include "tbox/HDFDatabaseFactory.I"
