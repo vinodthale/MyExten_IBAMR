@@ -9,37 +9,36 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
-
     env:
+      # absolute PETSc path used throughout
       PETSC_DIR: /home/runner/petsc
       PETSC_ARCH: arch-linux-c-opt
-      # HYPRE_ROOT is the correct variable that IBAMR expects
-      HYPRE_ROOT: /home/runner/petsc/arch-linux-c-opt
+      # (these are set after PETSc build; used to configure IBAMR)
+      HYPRE_INC: /home/runner/petsc/arch-linux-c-opt/include
+      HYPRE_LIB: /home/runner/petsc/arch-linux-c-opt/lib/libHYPRE.so
+      SAMRAI_INSTALL: /home/runner/samrai-install
 
     steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
-    # ---------------------------------------------------------
-    # Checkout
-    # ---------------------------------------------------------
-    - uses: actions/checkout@v4
-
-    # ---------------------------------------------------------
-    # Install system dependencies
-    # ---------------------------------------------------------
-    - name: Install Dependencies
+    - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y \
-          gcc g++ gfortran make cmake \
+        sudo apt-get install -y --no-install-recommends \
+          build-essential gcc g++ gfortran make cmake ninja-build \
+          python3 python3-pip python3-dev python3-distutils \
           libopenmpi-dev openmpi-bin \
-          python3 python3-dev python3-pip python3-distutils \
           libhdf5-dev liblapack-dev libblas-dev \
           libboost-all-dev libeigen3-dev \
-          valgrind doxygen graphviz wget curl
+          wget curl git ca-certificates unzip \
+          valgrind doxygen graphviz pkg-config
 
-    # ---------------------------------------------------------
-    # Cache PETSc source
-    # ---------------------------------------------------------
+    # -----------------------------
+    # PETSc: cache source + build
+    # -----------------------------
     - name: Cache PETSc source
       id: cache-petsc-src
       uses: actions/cache@v4
@@ -47,9 +46,6 @@ jobs:
         path: /home/runner/petsc-src
         key: ${{ runner.os }}-petsc-src-3.17.5
 
-    # ---------------------------------------------------------
-    # Cache PETSc build
-    # ---------------------------------------------------------
     - name: Cache PETSc build
       id: cache-petsc-build
       uses: actions/cache@v4
@@ -57,28 +53,24 @@ jobs:
         path: /home/runner/petsc
         key: ${{ runner.os }}-petsc-build-3.17.5
 
-    # ---------------------------------------------------------
-    # Download PETSc if needed
-    # ---------------------------------------------------------
-    - name: Download PETSc
+    - name: Download PETSc (if needed)
       if: steps.cache-petsc-src.outputs.cache-hit != 'true'
       run: |
         mkdir -p /home/runner/petsc-src
         cd /home/runner/petsc-src
-        wget https://ftp.mcs.anl.gov/pub/petsc/release-snapshots/petsc-3.17.5.tar.gz
+        wget -q https://ftp.mcs.anl.gov/pub/petsc/release-snapshots/petsc-3.17.5.tar.gz
         tar -xzf petsc-3.17.5.tar.gz
 
-    # ---------------------------------------------------------
-    # Build PETSc
-    # ---------------------------------------------------------
-    - name: Build PETSc
+    - name: Build PETSc from source (if needed)
       if: steps.cache-petsc-build.outputs.cache-hit != 'true'
       run: |
+        set -euo pipefail
         cd /home/runner
-        rm -rf petsc
-        cp -r petsc-src/petsc-3.17.5 petsc
+        rm -rf petsc || true
+        cp -r /home/runner/petsc-src/petsc-3.17.5 petsc
         cd petsc
 
+        # Use absolute PETSC_DIR and PETSC_ARCH
         export PETSC_DIR=/home/runner/petsc
         export PETSC_ARCH=arch-linux-c-opt
 
@@ -92,37 +84,77 @@ jobs:
           --download-superlu_dist \
           --download-fblaslapack
 
+        # build/test - parallel make to speed up
         make all -j$(nproc)
+        # run a light set of tests (can be heavy; optional)
         make test
 
-    # ---------------------------------------------------------
-    # Verify PETSc and HYPRE
-    # ---------------------------------------------------------
-    - name: Verify PETSc and HYPRE
+    - name: Verify PETSc
       run: |
         echo "PETSC_DIR=$PETSC_DIR"
         echo "PETSC_ARCH=$PETSC_ARCH"
-        echo "HYPRE_ROOT=$HYPRE_ROOT"
-        echo "Checking for HYPRE files..."
-        ls -lah $HYPRE_ROOT/include/HYPRE*.h || echo "HYPRE headers not found"
-        ls -lah $HYPRE_ROOT/lib/libHYPRE.* || echo "HYPRE library not found"
+        ls -la $PETSC_DIR || true
+        ls -la $PETSC_DIR/$PETSC_ARCH || true
+        echo "HYPRE headers (example):"
+        ls -la $HYPRE_INC || true
 
-    # ---------------------------------------------------------
-    # Cache IBAMR build
-    # ---------------------------------------------------------
-    - name: Cache IBAMR
+    # -----------------------------
+    # Cache IBAMR build (to speed re-runs)
+    # -----------------------------
+    - name: Cache IBAMR build
       id: cache-ibamr
       uses: actions/cache@v4
       with:
         path: IBAMR-0.18.0/build
         key: ${{ runner.os }}-ibamr-${{ hashFiles('IBAMR-0.18.0/**') }}
 
-    # ---------------------------------------------------------
+    # -----------------------------
+    # Build SAMRAI (IBAMR's IBSAMRAI2 fork)
+    # -----------------------------
+    # IBAMR expects its SAMRAI fork (IBSAMRAI2). The IBAMR org provides this.
+    - name: Cache IBSAMRAI2 source
+      id: cache-samrai-src
+      uses: actions/cache@v4
+      with:
+        path: /home/runner/IBSAMRAI2-src
+        key: ${{ runner.os }}-ibsamrai2-src-v2025-10-29
+
+    - name: Clone IBSAMRAI2 (if needed)
+      if: steps.cache-samrai-src.outputs.cache-hit != 'true'
+      run: |
+        mkdir -p /home/runner/IBSAMRAI2-src
+        cd /home/runner/IBSAMRAI2-src
+        # clone the official IBAMR SAMRAI fork (they tag/patch it)
+        git clone --depth 1 https://github.com/IBAMR/IBSAMRAI2.git .
+
+    - name: Build IBSAMRAI2 (SAMRAI) and install
+      run: |
+        set -euo pipefail
+        cd /home/runner/IBSAMRAI2-src
+        mkdir -p build && cd build
+        cmake .. \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_INSTALL_PREFIX=$SAMRAI_INSTALL \
+          -DPETSC_DIR=$PETSC_DIR \
+          -DPETSC_ARCH=$PETSC_ARCH \
+          -DHYPRE_DIR=$PETSC_DIR/$PETSC_ARCH
+        make -j$(nproc)
+        make install
+
+    - name: Verify SAMRAI install
+      run: |
+        echo "SAMRAI installed to $SAMRAI_INSTALL"
+        ls -la $SAMRAI_INSTALL || true
+        # ensure IBAMR will find SAMRAI headers
+        ls -la $SAMRAI_INSTALL/include || true
+
+    # -----------------------------
     # Build IBAMR
-    # ---------------------------------------------------------
+    # -----------------------------
     - name: Build IBAMR
       if: steps.cache-ibamr.outputs.cache-hit != 'true'
       run: |
+        set -euo pipefail
         cd IBAMR-0.18.0
         mkdir -p build
         cd build
@@ -131,105 +163,94 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release \
           -DPETSC_DIR=$PETSC_DIR \
           -DPETSC_ARCH=$PETSC_ARCH \
-          -DHYPRE_ROOT=$HYPRE_ROOT
+          -DHYPRE_INCLUDE_DIR=$HYPRE_INC \
+          -DHYPRE_LIBRARY=$HYPRE_LIB \
+          -DSAMRAI_DIR=$SAMRAI_INSTALL
 
         make -j$(nproc)
 
-    # ---------------------------------------------------------
-    # Python deps for Validation Framework
-    # ---------------------------------------------------------
-    - name: Setup Python deps
-      run: pip install numpy matplotlib scipy
+    # -----------------------------
+    # Python deps for the validation framework
+    # -----------------------------
+    - name: Setup Python deps (Validation Framework)
+      run: |
+        python3 -m pip install --upgrade pip
+        pip3 install numpy matplotlib scipy
 
-    # ---------------------------------------------------------
-    # Build: Validation Framework
-    # ---------------------------------------------------------
+    # -----------------------------
+    # Build the three test suites you listed
+    # -----------------------------
     - name: Build IBAMR_Validation_Framework
       run: |
+        set -euo pipefail
         cd IBAMR_Validation_Framework
-        mkdir -p build
-        cd build
+        mkdir -p build && cd build
         cmake .. \
-          -DIBAMR_DIR=${GITHUB_WORKSPACE}/IBAMR-0.18.0/build \
-          -DPETSC_DIR=$PETSC_DIR \
-          -DPETSC_ARCH=$PETSC_ARCH
-        make -j$(nproc)
-
-    # ---------------------------------------------------------
-    # Build: Understand IBAMR Code examples
-    # ---------------------------------------------------------
-    - name: Build IBAMR-understand-ibamr-code
-      run: |
-        cd IBAMR-understand-ibamr-code
-        mkdir -p build
-        cd build
-        cmake .. \
-          -DIBAMR_DIR=${GITHUB_WORKSPACE}/IBAMR-0.18.0/build \
-          -DPETSC_DIR=$PETSC_DIR \
-          -DPETSC_ARCH=$PETSC_ARCH
-        make -j$(nproc)
-
-    # ---------------------------------------------------------
-    # Build: Scalar Transport Test Suite
-    # ---------------------------------------------------------
-    - name: Build ScalarTransport_TestSuite_Standalone
-      run: |
-        cd ScalarTransport_TestSuite_Standalone
-        mkdir -p build
-        cd build
-        cmake .. \
-          -DIBAMR_DIR=${GITHUB_WORKSPACE}/IBAMR-0.18.0/build \
-          -DPETSC_DIR=$PETSC_DIR \
-          -DPETSC_ARCH=$PETSC_ARCH
-        make -j$(nproc)
-
-    # ---------------------------------------------------------
-    # Smoke test MPI
-    # ---------------------------------------------------------
-    - name: Run MPI Test
-      run: mpirun -np 2 echo "MPI works"
-
-    # ---------------------------------------------------------
-    # Run AddressSanitizer build (optional)
-    # ---------------------------------------------------------
-    - name: ASan Build (optional)
-      if: false   # enable later by setting true
-      run: |
-        echo "Building with AddressSanitizer..."
-        cd IBAMR-0.18.0
-        mkdir -p asan
-        cd asan
-        cmake .. \
-          -DCMAKE_C_FLAGS="-fsanitize=address" \
-          -DCMAKE_CXX_FLAGS="-fsanitize=address" \
+          -DIBAMR_DIR=${{ github.workspace }}/IBAMR-0.18.0/build \
           -DPETSC_DIR=$PETSC_DIR \
           -DPETSC_ARCH=$PETSC_ARCH \
-          -DHYPRE_ROOT=$HYPRE_ROOT
+          -DSAMRAI_DIR=$SAMRAI_INSTALL
         make -j$(nproc)
 
-    # ---------------------------------------------------------
-    # Valgrind memory test (optional)
-    # ---------------------------------------------------------
-    - name: Run Valgrind Test (optional)
+    - name: Build IBAMR-understand-ibamr-code
+      run: |
+        set -euo pipefail
+        cd IBAMR-understand-ibamr-code
+        mkdir -p build && cd build
+        cmake .. \
+          -DIBAMR_DIR=${{ github.workspace }}/IBAMR-0.18.0/build \
+          -DPETSC_DIR=$PETSC_DIR \
+          -DPETSC_ARCH=$PETSC_ARCH \
+          -DSAMRAI_DIR=$SAMRAI_INSTALL
+        make -j$(nproc)
+
+    - name: Build ScalarTransport_TestSuite_Standalone
+      run: |
+        set -euo pipefail
+        cd ScalarTransport_TestSuite_Standalone
+        mkdir -p build && cd build
+        cmake .. \
+          -DIBAMR_DIR=${{ github.workspace }}/IBAMR-0.18.0/build \
+          -DPETSC_DIR=$PETSC_DIR \
+          -DPETSC_ARCH=$PETSC_ARCH \
+          -DSAMRAI_DIR=$SAMRAI_INSTALL
+        make -j$(nproc)
+
+    # -----------------------------
+    # Simple MPI smoke test
+    # -----------------------------
+    - name: Run MPI smoke test
+      run: |
+        mpirun -np 2 echo "MPI ok"
+
+    # -----------------------------
+    # Optional: ASan / Valgrind steps (disabled by default)
+    # -----------------------------
+    - name: ASan build (disabled)
       if: false
       run: |
-        valgrind --leak-check=full echo "Valgrind OK"
+        echo "Enable ASan manually"
 
-    # ---------------------------------------------------------
-    # Build Doxygen Docs
-    # ---------------------------------------------------------
-    - name: Build Doxygen Docs
+    - name: Valgrind test (disabled)
+      if: false
+      run: |
+        echo "Enable valgrind manually"
+
+    # -----------------------------
+    # Docs (optional)
+    # -----------------------------
+    - name: Build Doxygen docs
       run: |
         if [ -f Doxyfile ]; then
           doxygen Doxyfile
         else
-          echo "No Doxyfile found"
+          echo "No Doxyfile - skipping"
         fi
 
-    # ---------------------------------------------------------
-    # Upload binaries
-    # ---------------------------------------------------------
-    - name: Upload binaries
+    # -----------------------------
+    # Upload artifacts
+    # -----------------------------
+    - name: Upload built binaries
       uses: actions/upload-artifact@v4
       with:
         name: ibamr-binaries
