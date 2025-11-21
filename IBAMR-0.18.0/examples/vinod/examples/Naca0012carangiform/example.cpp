@@ -49,6 +49,9 @@
 // Headers for basic PETSc functions
 #include <petscsys.h>
 
+// Standard C library headers
+#include <cstdio>
+
 // Headers for basic SAMRAI objects
 #include <BergerRigoutsos.h>
 #include <CartesianGridGeometry.h>
