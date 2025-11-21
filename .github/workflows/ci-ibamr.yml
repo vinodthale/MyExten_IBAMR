@@ -1,4 +1,4 @@
-name: Build IBAMR + Tests + Faster DIM=2,3 SAMRAI2
+name: Build IBAMR + DIM=2,3 SAMRAI2 (FAST)
 
 on:
   push:
@@ -13,7 +13,8 @@ jobs:
     env:
       PETSC_DIR: /home/runner/petsc
       PETSC_ARCH: arch-linux-c-opt
-      SAMRAI2_INSTALL: /home/runner/IBSAMRAI2-install
+      SAMRAI2_DIM2: /home/runner/IBSAMRAI2-dim2
+      SAMRAI2_DIM3: /home/runner/IBSAMRAI2-dim3
 
     steps:
 
@@ -29,36 +30,33 @@ jobs:
           libopenmpi-dev openmpi-bin \
           libhdf5-dev liblapack-dev libblas-dev pkg-config \
           libboost-all-dev libeigen3-dev \
-          wget curl git ca-certificates unzip \
-          valgrind doxygen graphviz
+          wget curl git unzip valgrind doxygen graphviz
 
     # ---------------------------------------------------------
-    # PETSc source + build cache
+    # PETSc cache
     # ---------------------------------------------------------
-    - name: Cache PETSc source
-      id: cache-petsc-src
-      uses: actions/cache@v4
+    - uses: actions/cache@v4
+      id: petsc-src
       with:
         path: /home/runner/petsc-src
         key: ${{ runner.os }}-petsc-src-3.17.5
 
-    - name: Cache PETSc build
-      id: cache-petsc-build
-      uses: actions/cache@v4
+    - uses: actions/cache@v4
+      id: petsc-build
       with:
         path: /home/runner/petsc
         key: ${{ runner.os }}-petsc-build-3.17.5
 
-    - name: Download PETSc (if needed)
-      if: steps.cache-petsc-src.outputs.cache-hit != 'true'
+    - name: Download PETSc if needed
+      if: steps.petsc-src.outputs.cache-hit != 'true'
       run: |
         mkdir -p /home/runner/petsc-src
         cd /home/runner/petsc-src
         wget -q https://ftp.mcs.anl.gov/pub/petsc/release-snapshots/petsc-3.17.5.tar.gz
         tar -xzf petsc-3.17.5.tar.gz
 
-    - name: Build PETSc (if needed)
-      if: steps.cache-petsc-build.outputs.cache-hit != 'true'
+    - name: Build PETSc (fast)
+      if: steps.petsc-build.outputs.cache-hit != 'true'
       run: |
         set -e
         cd /home/runner
@@ -71,38 +69,38 @@ jobs:
         ./configure \
           --with-debugging=0 \
           --with-shared-libraries=1 \
+          --download-fblaslapack \
           --download-hypre \
           --download-metis \
           --download-parmetis \
           --download-superlu \
-          --download-superlu_dist \
-          --download-fblaslapack
+          --download-superlu_dist
 
         make all -j$(nproc)
 
     - name: Verify PETSc
       run: |
-        echo "PETSC_DIR=$PETSC_DIR"
-        echo "PETSC_ARCH=$PETSC_ARCH"
         ls -la $PETSC_DIR/$PETSC_ARCH
 
     # ---------------------------------------------------------
-    # Build SAMRAI2 (IBSAMRAI2 fork) — DIM=2,3 ONLY
+    # Clone IBSAMRAI2
     # ---------------------------------------------------------
-    - name: Cache IBSAMRAI2 src
-      id: cache-samrai-src
-      uses: actions/cache@v4
+    - uses: actions/cache@v4
+      id: samrai-src
       with:
         path: /home/runner/IBSAMRAI2-src
         key: ${{ runner.os }}-ibsamrai2-src-v2025-02-20
 
-    - name: Clone IBSAMRAI2 if missing
-      if: steps.cache-samrai-src.outputs.cache-hit != 'true'
+    - name: Clone IBSAMRAI2 if needed
+      if: steps.samrai-src.outputs.cache-hit != 'true'
       run: |
         rm -rf /home/runner/IBSAMRAI2-src
         git clone --depth 1 https://github.com/IBAMR/IBSAMRAI2.git /home/runner/IBSAMRAI2-src
 
-    - name: Build IBSAMRAI2 (DIM=2,3 only)
+    # ---------------------------------------------------------
+    # Build SAMRAI2 (DIM=2)
+    # ---------------------------------------------------------
+    - name: Build SAMRAI2 DIM=2
       run: |
         set -e
         cd /home/runner/IBSAMRAI2-src
@@ -111,13 +109,11 @@ jobs:
         HDF5_LIB=$(pkg-config --variable=libdir hdf5)
 
         ./configure \
-          --prefix=$SAMRAI2_INSTALL \
+          --prefix=$SAMRAI2_DIM2 \
           --enable-opt \
           --disable-debug \
-          --enable-dimension=2,3 \
-          --with-CC=mpicc \
-          --with-CXX=mpicxx \
-          --with-F77=mpif77 \
+          --enable-dimension=2 \
+          --with-CC=mpicc --with-CXX=mpicxx --with-F77=mpif77 \
           --with-hdf5=$HDF5_LIB \
           CPPFLAGS="-I$HDF5_INC" \
           LDFLAGS="-L$HDF5_LIB -lhdf5"
@@ -125,13 +121,34 @@ jobs:
         make -j$(nproc)
         make install
 
-    - name: Verify IBSAMRAI2 install
+    # ---------------------------------------------------------
+    # Build SAMRAI2 (DIM=3)
+    # ---------------------------------------------------------
+    - name: Build SAMRAI2 DIM=3
       run: |
-        echo "Installed to $SAMRAI2_INSTALL"
-        ls -R $SAMRAI2_INSTALL
+        set -e
+        cd /home/runner/IBSAMRAI2-src
+
+        make distclean || true
+
+        HDF5_INC=$(pkg-config --variable=includedir hdf5)
+        HDF5_LIB=$(pkg-config --variable=libdir hdf5)
+
+        ./configure \
+          --prefix=$SAMRAI2_DIM3 \
+          --enable-opt \
+          --disable-debug \
+          --enable-dimension=3 \
+          --with-CC=mpicc --with-CXX=mpicxx --with-F77=mpif77 \
+          --with-hdf5=$HDF5_LIB \
+          CPPFLAGS="-I$HDF5_INC" \
+          LDFLAGS="-L$HDF5_LIB -lhdf5"
+
+        make -j$(nproc)
+        make install
 
     # ---------------------------------------------------------
-    # Build IBAMR
+    # Build IBAMR (uses DIM=2 SAMRAI)
     # ---------------------------------------------------------
     - name: Build IBAMR
       run: |
@@ -143,57 +160,60 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release \
           -DPETSC_DIR=$PETSC_DIR \
           -DPETSC_ARCH=$PETSC_ARCH \
-          -DSAMRAI_ROOT=$SAMRAI2_INSTALL
+          -DSAMRAI_ROOT=$SAMRAI2_DIM2
 
         make -j$(nproc)
 
     # ---------------------------------------------------------
-    # Build your three test suites
+    # Build the user test suites
     # ---------------------------------------------------------
     - name: Build IBAMR_Validation_Framework
       run: |
         cd IBAMR_Validation_Framework
         mkdir -p build && cd build
-        cmake .. -DIBAMR_DIR=${{ github.workspace }}/IBAMR-0.18.0/build \
-                 -DPETSC_DIR=$PETSC_DIR -DPETSC_ARCH=$PETSC_ARCH \
-                 -DSAMRAI_ROOT=$SAMRAI2_INSTALL
+        cmake .. \
+          -DIBAMR_DIR=${{ github.workspace }}/IBAMR-0.18.0/build \
+          -DPETSC_DIR=$PETSC_DIR \
+          -DPETSC_ARCH=$PETSC_ARCH \
+          -DSAMRAI_ROOT=$SAMRAI2_DIM2
         make -j$(nproc)
 
     - name: Build IBAMR-understand-ibamr-code
       run: |
         cd IBAMR-understand-ibamr-code
         mkdir -p build && cd build
-        cmake .. -DIBAMR_DIR=${{ github.workspace }}/IBAMR-0.18.0/build \
-                 -DPETSC_DIR=$PETSC_DIR -DPETSC_ARCH=$PETSC_ARCH \
-                 -DSAMRAI_ROOT=$SAMRAI2_INSTALL
+        cmake .. \
+          -DIBAMR_DIR=${{ github.workspace }}/IBAMR-0.18.0/build \
+          -DPETSC_DIR=$PETSC_DIR \
+          -DPETSC_ARCH=$PETSC_ARCH \
+          -DSAMRAI_ROOT=$SAMRAI2_DIM2
         make -j$(nproc)
 
     - name: Build ScalarTransport_TestSuite_Standalone
       run: |
         cd ScalarTransport_TestSuite_Standalone
-        mkdir -p build && cd build
-        cmake .. -DIBAMR_DIR=${{ github.workspace }}/IBAMR-0.18.0/build \
-                 -DPETSC_DIR=$PETSC_DIR -DPETSC_ARCH=$PETSC_ARCH \
-                 -DSAMRAI_ROOT=$SAMRAI2_INSTALL
+        mkdir build && cd build
+        cmake .. \
+          -DIBAMR_DIR=${{ github.workspace }}/IBAMR-0.18.0/build \
+          -DPETSC_DIR=$PETSC_DIR \
+          -DPETSC_ARCH=$PETSC_ARCH \
+          -DSAMRAI_ROOT=$SAMRAI2_DIM2
         make -j$(nproc)
 
     # ---------------------------------------------------------
-    # Quick MPI test
+    # MPI smoke test
     # ---------------------------------------------------------
     - name: MPI Smoke Test
-      run: |
-        mpirun -np 2 echo "MPI working"
+      run: mpirun -np 2 echo "MPI OK"
 
     # ---------------------------------------------------------
-    # Upload artifacts
+    # Upload binaries
     # ---------------------------------------------------------
-    - name: Upload built binaries
-      uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v4
       with:
-        name: ibamr-binaries
+        name: IBAMR-binaries
         path: |
           IBAMR-0.18.0/build/**
           IBAMR_Validation_Framework/build/**
           IBAMR-understand-ibamr-code/build/**
           ScalarTransport_TestSuite_Standalone/build/**
-        retention-days: 7
