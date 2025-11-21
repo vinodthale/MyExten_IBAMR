@@ -96,7 +96,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: /home/runner/IBSAMRAI2-src
-        key: ${{ runner.os }}-ibsamrai2-src-2025-02-20
+        key: ${{ runner.os }}-ibsamrai2-src-2025-02-20-fpermissive-fix
 
     - name: Clone IBSAMRAI2 if missing
       if: steps.cache-samrai-src.outputs.cache-hit != 'true'
