@@ -16,7 +16,7 @@ jobs:
       # (these are set after PETSc build; used to configure IBAMR)
       HYPRE_INC: /home/runner/petsc/arch-linux-c-opt/include
       HYPRE_LIB: /home/runner/petsc/arch-linux-c-opt/lib/libHYPRE.so
-      SAMRAI_INSTALL: /home/runner/samrai-install
+      SAMRAI2_INSTALL: /home/runner/IBSAMRAI2-install
 
     steps:
     - name: Checkout repository
@@ -122,31 +122,29 @@ jobs:
     - name: Clone IBSAMRAI2 (if needed)
       if: steps.cache-samrai-src.outputs.cache-hit != 'true'
       run: |
-        mkdir -p /home/runner/IBSAMRAI2-src
-        cd /home/runner/IBSAMRAI2-src
-        # clone the official IBAMR SAMRAI fork (they tag/patch it)
-        git clone --depth 1 https://github.com/IBAMR/IBSAMRAI2.git .
+        rm -rf /home/runner/IBSAMRAI2-src
+        # clone the official IBAMR SAMRAI2 repository with correct version tag
+        git clone --depth 1 --branch 2025.10.29 \
+          https://github.com/IBAMR/SAMRAI2.git \
+          /home/runner/IBSAMRAI2-src
 
-    - name: Build IBSAMRAI2 (SAMRAI) and install
+    - name: Build IBSAMRAI2 (SAMRAI2) and install
       run: |
         set -euo pipefail
         cd /home/runner/IBSAMRAI2-src
         mkdir -p build && cd build
         cmake .. \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_PREFIX=$SAMRAI_INSTALL \
-          -DPETSC_DIR=$PETSC_DIR \
-          -DPETSC_ARCH=$PETSC_ARCH \
-          -DHYPRE_DIR=$PETSC_DIR/$PETSC_ARCH
+          -DCMAKE_INSTALL_PREFIX=$SAMRAI2_INSTALL \
+          -DCMAKE_BUILD_TYPE=Release
         make -j$(nproc)
         make install
 
-    - name: Verify SAMRAI install
+    - name: Verify SAMRAI2 install
       run: |
-        echo "SAMRAI installed to $SAMRAI_INSTALL"
-        ls -la $SAMRAI_INSTALL || true
-        # ensure IBAMR will find SAMRAI headers
-        ls -la $SAMRAI_INSTALL/include || true
+        echo "SAMRAI2 installed to $SAMRAI2_INSTALL"
+        ls -la $SAMRAI2_INSTALL || true
+        # ensure IBAMR will find SAMRAI2 headers
+        ls -la $SAMRAI2_INSTALL/include || true
 
     # -----------------------------
     # Build IBAMR
@@ -165,7 +163,7 @@ jobs:
           -DPETSC_ARCH=$PETSC_ARCH \
           -DHYPRE_INCLUDE_DIR=$HYPRE_INC \
           -DHYPRE_LIBRARY=$HYPRE_LIB \
-          -DSAMRAI_DIR=$SAMRAI_INSTALL
+          -DSAMRAI2_DIR=$SAMRAI2_INSTALL
 
         make -j$(nproc)
 
@@ -189,7 +187,7 @@ jobs:
           -DIBAMR_DIR=${{ github.workspace }}/IBAMR-0.18.0/build \
           -DPETSC_DIR=$PETSC_DIR \
           -DPETSC_ARCH=$PETSC_ARCH \
-          -DSAMRAI_DIR=$SAMRAI_INSTALL
+          -DSAMRAI2_DIR=$SAMRAI2_INSTALL
         make -j$(nproc)
 
     - name: Build IBAMR-understand-ibamr-code
@@ -201,7 +199,7 @@ jobs:
           -DIBAMR_DIR=${{ github.workspace }}/IBAMR-0.18.0/build \
           -DPETSC_DIR=$PETSC_DIR \
           -DPETSC_ARCH=$PETSC_ARCH \
-          -DSAMRAI_DIR=$SAMRAI_INSTALL
+          -DSAMRAI2_DIR=$SAMRAI2_INSTALL
         make -j$(nproc)
 
     - name: Build ScalarTransport_TestSuite_Standalone
@@ -213,7 +211,7 @@ jobs:
           -DIBAMR_DIR=${{ github.workspace }}/IBAMR-0.18.0/build \
           -DPETSC_DIR=$PETSC_DIR \
           -DPETSC_ARCH=$PETSC_ARCH \
-          -DSAMRAI_DIR=$SAMRAI_INSTALL
+          -DSAMRAI2_DIR=$SAMRAI2_INSTALL
         make -j$(nproc)
 
     # -----------------------------
