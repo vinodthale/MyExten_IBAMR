@@ -137,13 +137,16 @@ jobs:
         # Find HDF5 location on Ubuntu
         HDF5_DIR=$(pkg-config --variable=prefix hdf5 || echo "/usr/lib/x86_64-linux-gnu/hdf5/serial")
 
+        # Set compilers as environment variables (SAMRAI configure expects this)
+        export CC=mpicc
+        export CXX=mpicxx
+        export F77=mpif77
+        export FC=mpif90
+
         ./configure \
           --prefix=$SAMRAI2_INSTALL \
           --enable-opt \
           --disable-debug \
-          --with-CXX=mpicxx \
-          --with-CC=mpicc \
-          --with-F77=mpif77 \
           --with-hdf5=$HDF5_DIR
 
         make -j$(nproc)
