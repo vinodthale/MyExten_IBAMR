@@ -109,22 +109,21 @@ jobs:
         set -e
         cd /home/runner/IBSAMRAI2-src
 
+        # IBSAMRAI2 uses autotools, not CMake
+        # Find HDF5 location on Ubuntu
+        HDF5_DIR=$(pkg-config --variable=prefix hdf5 2>/dev/null || echo /usr/lib/x86_64-linux-gnu/hdf5/serial)
+
+        # Set compilers as environment variables (SAMRAI configure expects this)
         export CC=mpicc
         export CXX=mpicxx
         export F77=mpif77
-
-        HDF5_INC=$(pkg-config --variable=includedir hdf5 2>/dev/null || echo /usr/include/hdf5/serial)
-        HDF5_LIBDIR=$(pkg-config --variable=libdir hdf5 2>/dev/null || echo /usr/lib/x86_64-linux-gnu/hdf5/serial)
+        export FC=mpif90
 
         ./configure \
           --prefix=$SAMRAI2_INSTALL \
           --enable-opt \
           --disable-debug \
-          --with-CC=$CC \
-          --with-CXX=$CXX \
-          --with-F77=$F77 \
-          CPPFLAGS="-I${HDF5_INC}" \
-          LDFLAGS="-L${HDF5_LIBDIR} -lhdf5"
+          --with-hdf5=$HDF5_DIR
 
         make -j$(nproc)
         make install
@@ -142,6 +141,7 @@ jobs:
       with:
         path: IBAMR-0.18.0/build
         key: ${{ runner.os }}-ibamr-${{ hashFiles('IBAMR-0.18.0/**') }}
+
 
     - name: Build IBAMR
       if: steps.cache-ibamr.outputs.cache-hit != 'true'
