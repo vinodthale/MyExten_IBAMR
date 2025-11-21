@@ -132,10 +132,17 @@ jobs:
       run: |
         set -euo pipefail
         cd /home/runner/IBSAMRAI2-src
-        mkdir -p build && cd build
-        cmake .. \
-          -DCMAKE_INSTALL_PREFIX=$SAMRAI2_INSTALL \
-          -DCMAKE_BUILD_TYPE=Release
+
+        # IBSAMRAI2 uses autotools, not CMake
+        ./configure \
+          --prefix=$SAMRAI2_INSTALL \
+          --enable-opt \
+          --disable-debug \
+          --with-CXX=mpicxx \
+          --with-CC=mpicc \
+          --with-F77=mpif77 \
+          --with-hdf5=/usr
+
         make -j$(nproc)
         make install
 
@@ -163,7 +170,7 @@ jobs:
           -DPETSC_ARCH=$PETSC_ARCH \
           -DHYPRE_INCLUDE_DIR=$HYPRE_INC \
           -DHYPRE_LIBRARY=$HYPRE_LIB \
-          -DSAMRAI2_DIR=$SAMRAI2_INSTALL
+          -DSAMRAI_ROOT=$SAMRAI2_INSTALL
 
         make -j$(nproc)
 
@@ -187,7 +194,7 @@ jobs:
           -DIBAMR_DIR=${{ github.workspace }}/IBAMR-0.18.0/build \
           -DPETSC_DIR=$PETSC_DIR \
           -DPETSC_ARCH=$PETSC_ARCH \
-          -DSAMRAI2_DIR=$SAMRAI2_INSTALL
+          -DSAMRAI_ROOT=$SAMRAI2_INSTALL
         make -j$(nproc)
 
     - name: Build IBAMR-understand-ibamr-code
@@ -199,7 +206,7 @@ jobs:
           -DIBAMR_DIR=${{ github.workspace }}/IBAMR-0.18.0/build \
           -DPETSC_DIR=$PETSC_DIR \
           -DPETSC_ARCH=$PETSC_ARCH \
-          -DSAMRAI2_DIR=$SAMRAI2_INSTALL
+          -DSAMRAI_ROOT=$SAMRAI2_INSTALL
         make -j$(nproc)
 
     - name: Build ScalarTransport_TestSuite_Standalone
@@ -211,7 +218,7 @@ jobs:
           -DIBAMR_DIR=${{ github.workspace }}/IBAMR-0.18.0/build \
           -DPETSC_DIR=$PETSC_DIR \
           -DPETSC_ARCH=$PETSC_ARCH \
-          -DSAMRAI2_DIR=$SAMRAI2_INSTALL
+          -DSAMRAI_ROOT=$SAMRAI2_INSTALL
         make -j$(nproc)
 
     # -----------------------------
