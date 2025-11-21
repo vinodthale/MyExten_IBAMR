@@ -120,6 +120,9 @@ jobs:
         export F77=mpif77
         export FC=mpif90
 
+        # Add -fpermissive to allow implicit pointer conversions for GCC 11+
+        export CXXFLAGS="-fpermissive"
+
         ./configure \
           --prefix=$SAMRAI2_INSTALL \
           --enable-opt \
