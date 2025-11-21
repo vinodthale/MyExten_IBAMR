@@ -444,7 +444,7 @@ main(int argc, char* argv[])
             }
 
             IBTK_MPI::barrier();
-            // Initialize a vector to recieve the coordinates to print to
+            // Initialize a vector to receive the coordinates to print to
             std::vector<Lag_Coords> global_coordinates;
             // Specify what's done on the root process
             int total_nodes = 0;

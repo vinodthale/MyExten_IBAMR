@@ -199,7 +199,7 @@ struct IBTK_MPI
      * @param buf Pointer to a valid type array buffer with length integers.
      * @param length Number of integers in buf that we want to send.
      * @param receiving_proc_number Receiving processor number.
-     * @param send_length Optional boolean argument specifiying if
+     * @param send_length Optional boolean argument specifying if
      * we first need to send a message with the array size.
      * Default value is true.
      * @param tag Optional integer argument specifying an integer tag
@@ -247,7 +247,7 @@ struct IBTK_MPI
      * @param length Maximum number of integers that can be stored in
      * buf.
      * @param sending_proc_number Processor number of sender.
-     * @param get_length Optional boolean argument specifiying if
+     * @param get_length Optional boolean argument specifying if
      * we first need to send a message to determine the array size.
      * Default value is true.
      * @param tag Optional integer argument specifying a tag which

@@ -12,13 +12,13 @@ GitHub to track things that need to be fixed or improved in IBAMR with the
 ## Using git and IBAMR
 IBAMR has about a dozen regular contributors, who, at any time, are working on
 dozens of new features and fixes. We use git to track these changes, handle
-merging of new features, and keep a log of all commited changes to the library.
+merging of new features, and keep a log of all committed changes to the library.
 
 Changes to IBAMR are peer-reviewed: instead of simply pushing new features as
 they are finished, all changes undergo a period when the core IBAMR developers
 review the new code and check it for possible bugs, style problems, and
 consistency with the rest of the library. Git facilitates this workflow with
-*branches*: changes to IBAMR are first commited to branches, which are then
+*branches*: changes to IBAMR are first committed to branches, which are then
 considered (via GitHub's pull request mechanism) for merging with the master
 branch of GitHub. This is a simplified variant of what is usually called the
 [gitflow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow)
