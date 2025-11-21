@@ -108,7 +108,10 @@ jobs:
       if: steps.cache-samrai-src.outputs.cache-hit != 'true'
       run: |
         cd /home/runner/IBSAMRAI2-src
-        patch -p1 < ${{ github.workspace }}/patches/ibsamrai2-hdfdatabase-include.patch
+        # Use --forward to skip patches that are already applied
+        # This handles cases where upstream has incorporated our fixes
+        patch -p1 --forward < ${{ github.workspace }}/patches/ibsamrai2-hdfdatabase-include.patch || \
+          echo "Patch already applied or not needed, continuing..."
 
     - name: Build IBSAMRAI2 (AUTOMATIC DIM=1,2,3)
       run: |
