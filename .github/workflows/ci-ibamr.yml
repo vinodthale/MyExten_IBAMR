@@ -110,8 +110,9 @@ jobs:
         cd /home/runner/IBSAMRAI2-src
 
         # IBSAMRAI2 uses autotools, not CMake
-        # Find HDF5 location on Ubuntu
-        HDF5_DIR=$(pkg-config --variable=prefix hdf5 2>/dev/null || echo /usr/lib/x86_64-linux-gnu/hdf5/serial)
+        # Find HDF5 location on Ubuntu - libhdf5-serial-dev installs to serial subdirectories
+        HDF5_INC=$(pkg-config --variable=includedir hdf5 2>/dev/null || echo /usr/include/hdf5/serial)
+        HDF5_LIB=$(pkg-config --variable=libdir hdf5 2>/dev/null || echo /usr/lib/x86_64-linux-gnu/hdf5/serial)
 
         # Set compilers as environment variables (SAMRAI configure expects this)
         export CC=mpicc
@@ -123,7 +124,8 @@ jobs:
           --prefix=$SAMRAI2_INSTALL \
           --enable-opt \
           --disable-debug \
-          --with-hdf5=$HDF5_DIR
+          --with-hdf5-include=$HDF5_INC \
+          --with-hdf5-lib=$HDF5_LIB
 
         make -j$(nproc)
         make install
