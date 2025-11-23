@@ -92,48 +92,43 @@ jobs:
         cat $PETSC_DIR/$PETSC_ARCH/lib/petsc/conf/petscvariables || true
 
     # -----------------------------
-    # SAMRAI2 build - FIX ALWAYS APPLIED
+    # SAMRAI2 build (NO SOURCE CACHE - Always fresh)
     # -----------------------------
-    - name: Cache IBSAMRAI2 source
-      id: cache-samrai-src
-      uses: actions/cache@v4
-      with:
-        path: /home/runner/IBSAMRAI2-src
-        key: ${{ runner.os }}-ibsamrai2-src-v4
-
-    - name: Clone IBSAMRAI2 if missing
-      if: steps.cache-samrai-src.outputs.cache-hit != 'true'
+    - name: Clone IBSAMRAI2 (fresh every time)
       run: |
         rm -rf /home/runner/IBSAMRAI2-src
         git clone --depth 1 https://github.com/IBAMR/IBSAMRAI2.git /home/runner/IBSAMRAI2-src
         cd /home/runner/IBSAMRAI2-src
         echo "Cloned IBSAMRAI2 commit: $(git rev-parse HEAD)"
 
-    # THIS FIX NOW RUNS ALWAYS - NOT CONDITIONAL!
     - name: Apply IBSAMRAI2 HDFDatabase fix
       run: |
         cd /home/runner/IBSAMRAI2-src
-
         FILE="source/toolbox/restartdb/HDFDatabaseFactory.C"
 
-        echo "Checking if fix is needed..."
-        if ! grep -q '#include "tbox/HDFDatabase.h"' "$FILE"; then
-          echo "=== APPLYING FIX ==="
-          sed -i '/#include "tbox\/HDFDatabaseFactory.h"/a #include "tbox/HDFDatabase.h"' "$FILE"
-          echo "Fix applied!"
-        else
-          echo "Fix already present, skipping..."
-        fi
-
-        echo "=== Current file header ==="
+        echo "=== Before fix ==="
         head -15 "$FILE"
+
+        # Insert include after the HDFDatabaseFactory.h include line
+        sed -i '/HDFDatabaseFactory.h/a #include "tbox/HDFDatabase.h"' "$FILE"
+
+        echo "=== After fix ==="
+        head -15 "$FILE"
+
+        # Verify the fix was applied
+        if grep -q '#include "tbox/HDFDatabase.h"' "$FILE"; then
+          echo "✓ Fix successfully applied!"
+        else
+          echo "✗ ERROR: Fix failed to apply!"
+          exit 1
+        fi
 
     - name: Cache IBSAMRAI2 build
       id: cache-samrai-build
       uses: actions/cache@v4
       with:
         path: /home/runner/IBSAMRAI2-install
-        key: ${{ runner.os }}-ibsamrai2-build-v4
+        key: ${{ runner.os }}-ibsamrai2-build-v6
 
     - name: Build IBSAMRAI2 if missing
       if: steps.cache-samrai-build.outputs.cache-hit != 'true'
@@ -169,12 +164,12 @@ jobs:
         echo "SAMRAI2 installation structure:"
         ls -la $SAMRAI2_INSTALL
         if [ -d "$SAMRAI2_INSTALL/include" ]; then
-          echo "Include directory exists"
-          ls $SAMRAI2_INSTALL/include
+          echo "✓ Include directory exists"
+          ls $SAMRAI2_INSTALL/include | head -10
         fi
         if [ -d "$SAMRAI2_INSTALL/lib" ]; then
-          echo "Library directory exists"
-          ls $SAMRAI2_INSTALL/lib
+          echo "✓ Library directory exists"
+          ls $SAMRAI2_INSTALL/lib | head -10
         fi
 
     # -----------------------------
