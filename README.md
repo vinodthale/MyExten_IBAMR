@@ -107,6 +107,57 @@ make install
 
 ---
 
+## 🔧 CI/CD Pipeline
+
+This repository includes automated GitHub Actions CI/CD workflows for continuous integration and testing.
+
+### Automated Build Process
+
+The CI pipeline automatically builds and tests:
+- PETSc 3.17.5 (with caching)
+- IBSAMRAI2 (custom build with automated fixes)
+- IBAMR 0.18.0
+- IBAMR Validation Framework
+- IBAMR Understanding Code modules
+- ScalarTransport Test Suite
+
+### IBSAMRAI2 Build Fix
+
+**Important**: The CI workflow includes an automatic fix for a missing include in IBSAMRAI2's `HDFDatabaseFactory.C` file. This fix:
+
+- Clones fresh IBSAMRAI2 source on every run
+- Applies a complete file replacement to add the missing `#include "tbox/HDFDatabase.h"`
+- Verifies the fix with full before/after logging
+- Uses cache key `final-v1` for optimized builds
+
+**Build Status**: See [GitHub Actions](https://github.com/vinodthale/MyExten_IBAMR/actions)
+
+### Running CI Locally
+
+To trigger the CI workflow:
+
+```bash
+# Option 1: Using GitHub CLI
+gh workflow run ci-ibamr.yml --ref main
+
+# Option 2: Make an empty commit
+git commit --allow-empty -m "Trigger CI"
+git push origin main
+```
+
+### Cache Management
+
+The CI uses GitHub Actions cache to speed up builds:
+- PETSc cache: ~10-15 minutes saved
+- IBSAMRAI2 build cache: ~10-20 minutes saved
+- IBAMR/test suite caches: ~5-10 minutes saved per component
+
+To clear caches (if needed):
+1. Go to: https://github.com/vinodthale/MyExten_IBAMR/actions/caches
+2. Delete specific caches or clear all
+
+---
+
 ## 🧪 Running Examples
 
 ### Basic IBAMR Example
