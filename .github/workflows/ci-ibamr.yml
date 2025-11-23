@@ -92,14 +92,14 @@ jobs:
         cat $PETSC_DIR/$PETSC_ARCH/lib/petsc/conf/petscvariables || true
 
     # -----------------------------
-    # SAMRAI2 build (DIM 2+3 auto) - WITH DIRECT FIX
+    # SAMRAI2 build - FIX ALWAYS APPLIED
     # -----------------------------
     - name: Cache IBSAMRAI2 source
       id: cache-samrai-src
       uses: actions/cache@v4
       with:
         path: /home/runner/IBSAMRAI2-src
-        key: ${{ runner.os }}-ibsamrai2-src-fixed-v3
+        key: ${{ runner.os }}-ibsamrai2-src-v4
 
     - name: Clone IBSAMRAI2 if missing
       if: steps.cache-samrai-src.outputs.cache-hit != 'true'
@@ -109,27 +109,23 @@ jobs:
         cd /home/runner/IBSAMRAI2-src
         echo "Cloned IBSAMRAI2 commit: $(git rev-parse HEAD)"
 
-    - name: Fix IBSAMRAI2 HDFDatabase missing include
-      if: steps.cache-samrai-src.outputs.cache-hit != 'true'
+    # THIS FIX NOW RUNS ALWAYS - NOT CONDITIONAL!
+    - name: Apply IBSAMRAI2 HDFDatabase fix
       run: |
         cd /home/runner/IBSAMRAI2-src
 
         FILE="source/toolbox/restartdb/HDFDatabaseFactory.C"
 
-        # Check if already fixed
+        echo "Checking if fix is needed..."
         if ! grep -q '#include "tbox/HDFDatabase.h"' "$FILE"; then
-          echo "Applying HDFDatabase include fix..."
-
-          # Add the include after HDFDatabaseFactory.h
+          echo "=== APPLYING FIX ==="
           sed -i '/#include "tbox\/HDFDatabaseFactory.h"/a #include "tbox/HDFDatabase.h"' "$FILE"
-
-          echo "Fix applied successfully!"
+          echo "Fix applied!"
         else
-          echo "HDFDatabase.h already included, skipping..."
+          echo "Fix already present, skipping..."
         fi
 
-        # Verify
-        echo "=== Verifying fix ==="
+        echo "=== Current file header ==="
         head -15 "$FILE"
 
     - name: Cache IBSAMRAI2 build
@@ -137,7 +133,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: /home/runner/IBSAMRAI2-install
-        key: ${{ runner.os }}-ibsamrai2-build-fixed-v3
+        key: ${{ runner.os }}-ibsamrai2-build-v4
 
     - name: Build IBSAMRAI2 if missing
       if: steps.cache-samrai-build.outputs.cache-hit != 'true'
