@@ -92,15 +92,14 @@ jobs:
         cat $PETSC_DIR/$PETSC_ARCH/lib/petsc/conf/petscvariables || true
 
     # -----------------------------
-    # SAMRAI2 build (DIM 2+3 auto) - FIXED
+    # SAMRAI2 build (DIM 2+3 auto) - WITH DIRECT FIX
     # -----------------------------
     - name: Cache IBSAMRAI2 source
       id: cache-samrai-src
       uses: actions/cache@v4
       with:
         path: /home/runner/IBSAMRAI2-src
-        # Cache key includes patch file hash to auto-invalidate when patches change
-        key: ${{ runner.os }}-ibsamrai2-src-${{ hashFiles('patches/*.patch') }}-v2
+        key: ${{ runner.os }}-ibsamrai2-src-fixed-v3
 
     - name: Clone IBSAMRAI2 if missing
       if: steps.cache-samrai-src.outputs.cache-hit != 'true'
@@ -110,26 +109,35 @@ jobs:
         cd /home/runner/IBSAMRAI2-src
         echo "Cloned IBSAMRAI2 commit: $(git rev-parse HEAD)"
 
-    - name: Apply IBSAMRAI2 patches
+    - name: Fix IBSAMRAI2 HDFDatabase missing include
       if: steps.cache-samrai-src.outputs.cache-hit != 'true'
       run: |
         cd /home/runner/IBSAMRAI2-src
-        if [ -f "${{ github.workspace }}/patches/ibsamrai2-hdfdatabase-include.patch" ]; then
-          echo "Applying HDF Database patch..."
-          patch -p1 --forward < "${{ github.workspace }}/patches/ibsamrai2-hdfdatabase-include.patch" || \
-            echo "Patch already applied or not needed, continuing..."
+
+        FILE="source/toolbox/restartdb/HDFDatabaseFactory.C"
+
+        # Check if already fixed
+        if ! grep -q '#include "tbox/HDFDatabase.h"' "$FILE"; then
+          echo "Applying HDFDatabase include fix..."
+
+          # Add the include after HDFDatabaseFactory.h
+          sed -i '/#include "tbox\/HDFDatabaseFactory.h"/a #include "tbox/HDFDatabase.h"' "$FILE"
+
+          echo "Fix applied successfully!"
         else
-          echo "No patch file found, skipping..."
+          echo "HDFDatabase.h already included, skipping..."
         fi
 
-    # NEW: Cache the SAMRAI2 build output (this was missing!)
+        # Verify
+        echo "=== Verifying fix ==="
+        head -15 "$FILE"
+
     - name: Cache IBSAMRAI2 build
       id: cache-samrai-build
       uses: actions/cache@v4
       with:
         path: /home/runner/IBSAMRAI2-install
-        # Use same key as source cache to ensure they stay in sync
-        key: ${{ runner.os }}-ibsamrai2-build-${{ hashFiles('patches/*.patch') }}-v2
+        key: ${{ runner.os }}-ibsamrai2-build-fixed-v3
 
     - name: Build IBSAMRAI2 if missing
       if: steps.cache-samrai-build.outputs.cache-hit != 'true'
