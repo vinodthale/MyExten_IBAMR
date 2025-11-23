@@ -94,32 +94,71 @@ jobs:
     # -----------------------------
     # SAMRAI2 build (NO SOURCE CACHE - Always fresh)
     # -----------------------------
-    - name: Clone IBSAMRAI2 (fresh every time)
+    - name: Clone IBSAMRAI2 (always fresh)
       run: |
         rm -rf /home/runner/IBSAMRAI2-src
         git clone --depth 1 https://github.com/IBAMR/IBSAMRAI2.git /home/runner/IBSAMRAI2-src
         cd /home/runner/IBSAMRAI2-src
-        echo "Cloned IBSAMRAI2 commit: $(git rev-parse HEAD)"
+        echo "✓ Cloned IBSAMRAI2 at commit: $(git rev-parse HEAD)"
 
-    - name: Apply IBSAMRAI2 HDFDatabase fix
+    - name: Fix IBSAMRAI2 HDFDatabaseFactory bug
       run: |
+        set -e
         cd /home/runner/IBSAMRAI2-src
+
+        # The buggy file
         FILE="source/toolbox/restartdb/HDFDatabaseFactory.C"
 
-        echo "=== Before fix ==="
-        head -15 "$FILE"
+        echo "========================================"
+        echo "ORIGINAL FILE (has missing include):"
+        echo "========================================"
+        cat "$FILE"
+        echo ""
+        echo "========================================"
 
-        # Insert include after the HDFDatabaseFactory.h include line
-        sed -i '/HDFDatabaseFactory.h/a #include "tbox/HDFDatabase.h"' "$FILE"
+        # Create the corrected version - complete file replacement
+        cat > "$FILE" << 'EOF'
+//
+// File:	$URL$
+// Package:	SAMRAI toolbox
+// Copyright:	(c) 1997-2008 Lawrence Livermore National Security, LLC
+// Revision:	$LastChangedRevision$
+// Modified:	$LastChangedDate$
+// Description:	An HDFDatabase factory
+//
 
-        echo "=== After fix ==="
-        head -15 "$FILE"
+#include "tbox/HDFDatabaseFactory.h"
+#include "tbox/HDFDatabase.h"
+#include "tbox/Utilities.h"
 
-        # Verify the fix was applied
-        if grep -q '#include "tbox/HDFDatabase.h"' "$FILE"; then
-          echo "✓ Fix successfully applied!"
+namespace SAMRAI {
+   namespace tbox {
+
+Pointer<Database> HDFDatabaseFactory::allocate(
+   const string& name)
+{
+   Pointer<HDFDatabase> database = new HDFDatabase(name);
+   return database;
+}
+
+   }
+}
+EOF
+
+        echo ""
+        echo "========================================"
+        echo "FIXED FILE (includes HDFDatabase.h):"
+        echo "========================================"
+        cat "$FILE"
+        echo ""
+        echo "========================================"
+
+        # Verify the fix
+        echo "Verifying fix..."
+        if grep -n '#include "tbox/HDFDatabase.h"' "$FILE"; then
+          echo "✓✓✓ SUCCESS: HDFDatabase.h include is present!"
         else
-          echo "✗ ERROR: Fix failed to apply!"
+          echo "✗✗✗ FAILED: HDFDatabase.h include NOT found!"
           exit 1
         fi
 
@@ -128,20 +167,20 @@ jobs:
       uses: actions/cache@v4
       with:
         path: /home/runner/IBSAMRAI2-install
-        key: ${{ runner.os }}-ibsamrai2-build-v6
+        key: ${{ runner.os }}-ibsamrai2-build-final-v1
 
-    - name: Build IBSAMRAI2 if missing
+    - name: Build IBSAMRAI2
       if: steps.cache-samrai-build.outputs.cache-hit != 'true'
       run: |
         set -e
         cd /home/runner/IBSAMRAI2-src
 
-        # Find HDF5 location on Ubuntu
+        # Find HDF5
         HDF5_INC=$(pkg-config --variable=includedir hdf5 2>/dev/null || echo /usr/include/hdf5/serial)
         HDF5_LIB=$(pkg-config --variable=libdir hdf5 2>/dev/null || echo /usr/lib/x86_64-linux-gnu/hdf5/serial)
 
-        echo "Using HDF5 include: $HDF5_INC"
-        echo "Using HDF5 lib: $HDF5_LIB"
+        echo "HDF5 include: $HDF5_INC"
+        echo "HDF5 library: $HDF5_LIB"
 
         # Set compilers
         export CC=mpicc
@@ -149,6 +188,8 @@ jobs:
         export F77=mpif77
         export FC=mpif90
 
+        # Configure
+        echo "Configuring SAMRAI2..."
         ./configure \
           --prefix=$SAMRAI2_INSTALL \
           --enable-opt \
@@ -156,20 +197,35 @@ jobs:
           --with-hdf5-include=$HDF5_INC \
           --with-hdf5-lib=$HDF5_LIB
 
+        # Build
+        echo "Building SAMRAI2 with $(nproc) cores..."
         make -j$(nproc)
+
+        # Install
+        echo "Installing SAMRAI2..."
         make install
+
+        echo "✓ SAMRAI2 build complete!"
 
     - name: Verify SAMRAI2 installation
       run: |
-        echo "SAMRAI2 installation structure:"
-        ls -la $SAMRAI2_INSTALL
-        if [ -d "$SAMRAI2_INSTALL/include" ]; then
-          echo "✓ Include directory exists"
-          ls $SAMRAI2_INSTALL/include | head -10
-        fi
-        if [ -d "$SAMRAI2_INSTALL/lib" ]; then
-          echo "✓ Library directory exists"
-          ls $SAMRAI2_INSTALL/lib | head -10
+        echo "Checking SAMRAI2 installation at: $SAMRAI2_INSTALL"
+        if [ -d "$SAMRAI2_INSTALL" ]; then
+          echo "✓ Installation directory exists"
+          ls -la "$SAMRAI2_INSTALL"
+
+          if [ -d "$SAMRAI2_INSTALL/include" ]; then
+            echo "✓ Headers installed"
+            ls "$SAMRAI2_INSTALL/include" | head -10
+          fi
+
+          if [ -d "$SAMRAI2_INSTALL/lib" ]; then
+            echo "✓ Libraries installed"
+            ls "$SAMRAI2_INSTALL/lib" | head -10
+          fi
+        else
+          echo "✗ Installation directory not found!"
+          exit 1
         fi
 
     # -----------------------------
@@ -359,14 +415,13 @@ jobs:
     - name: Build Summary
       if: always()
       run: |
-        echo "================================"
-        echo "Build Summary"
-        echo "================================"
-        echo "PETSc: ${{ steps.cache-petsc-build.outputs.cache-hit == 'true' && 'cached' || 'built' }}"
-        echo "SAMRAI2 source: ${{ steps.cache-samrai-src.outputs.cache-hit == 'true' && 'cached' || 'cloned' }}"
-        echo "SAMRAI2 build: ${{ steps.cache-samrai-build.outputs.cache-hit == 'true' && 'cached' || 'built' }}"
-        echo "IBAMR: ${{ steps.cache-ibamr.outputs.cache-hit == 'true' && 'cached' || 'built' }}"
-        echo "Validation Framework: ${{ steps.cache-validation.outputs.cache-hit == 'true' && 'cached' || 'built' }}"
-        echo "Understand Code: ${{ steps.cache-understand.outputs.cache-hit == 'true' && 'cached' || 'built' }}"
-        echo "Scalar Transport: ${{ steps.cache-scalar.outputs.cache-hit == 'true' && 'cached' || 'built' }}"
-        echo "================================"
+        echo "========================================"
+        echo "           BUILD SUMMARY"
+        echo "========================================"
+        echo "PETSc:      ${{ steps.cache-petsc-build.outputs.cache-hit == 'true' && '✓ cached' || '✓ built' }}"
+        echo "SAMRAI2:    ${{ steps.cache-samrai-build.outputs.cache-hit == 'true' && '✓ cached' || '✓ built' }}"
+        echo "IBAMR:      ${{ steps.cache-ibamr.outputs.cache-hit == 'true' && '✓ cached' || '✓ built' }}"
+        echo "Validation: ${{ steps.cache-validation.outputs.cache-hit == 'true' && '✓ cached' || '✓ built' }}"
+        echo "Understand: ${{ steps.cache-understand.outputs.cache-hit == 'true' && '✓ cached' || '✓ built' }}"
+        echo "Scalar:     ${{ steps.cache-scalar.outputs.cache-hit == 'true' && '✓ cached' || '✓ built' }}"
+        echo "========================================"
