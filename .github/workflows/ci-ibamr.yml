@@ -17,7 +17,7 @@ jobs:
       SAMRAI2_INSTALL: /home/runner/IBSAMRAI2-install
 
     steps:
-    - name: Checkout repo
+    - name: Checkout repository
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
@@ -34,9 +34,6 @@ jobs:
           wget curl git ca-certificates unzip \
           valgrind doxygen graphviz
 
-    # -------------------------------------------------------------
-    # PETSc
-    # -------------------------------------------------------------
     - name: Cache PETSc source
       id: cache-petsc-src
       uses: actions/cache@v4
@@ -51,7 +48,7 @@ jobs:
         path: /home/runner/petsc
         key: petsc-build-3.17.5
 
-    - name: Download PETSc
+    - name: Download PETSc if missing
       if: steps.cache-petsc-src.outputs.cache-hit != 'true'
       run: |
         mkdir -p /home/runner/petsc-src
@@ -59,13 +56,16 @@ jobs:
         wget -q https://ftp.mcs.anl.gov/pub/petsc/release-snapshots/petsc-3.17.5.tar.gz
         tar -xzf petsc-3.17.5.tar.gz
 
-    - name: Build PETSc
+    - name: Build PETSc if missing
       if: steps.cache-petsc-build.outputs.cache-hit != 'true'
       run: |
+        set -e
         cd /home/runner
         rm -rf petsc || true
         cp -r petsc-src/petsc-3.17.5 petsc
         cd petsc
+        export PETSC_DIR=/home/runner/petsc
+        export PETSC_ARCH=arch-linux-c-opt
         ./configure \
           --with-debugging=0 \
           --with-shared-libraries=1 \
@@ -77,9 +77,6 @@ jobs:
           --download-fblaslapack
         make all -j$(nproc)
 
-    # -------------------------------------------------------------
-    # SAMRAI2
-    # -------------------------------------------------------------
     - name: Clone IBSAMRAI2
       run: |
         rm -rf /home/runner/IBSAMRAI2-src
@@ -105,21 +102,22 @@ Pointer<Database> HDFDatabaseFactory::allocate(const string& name)
 } // namespace tbox
 } // namespace SAMRAI
 EOF
+        echo "Fix applied."
 
-    - name: Cache SAMRAI2 build
-      id: cache-samrai
+    - name: Cache IBSAMRAI2 build
+      id: cache-samrai-build
       uses: actions/cache@v4
       with:
         path: /home/runner/IBSAMRAI2-install
-        key: samrai2-v8
+        key: ibsamrai2-v8
 
-    - name: Build SAMRAI2
-      if: steps.cache-samrai.outputs.cache-hit != 'true'
+    - name: Build IBSAMRAI2
+      if: steps.cache-samrai-build.outputs.cache-hit != 'true'
       run: |
+        set -e
         cd /home/runner/IBSAMRAI2-src
         HDF5_INC=/usr/include/hdf5/serial
         HDF5_LIB=/usr/lib/x86_64-linux-gnu/hdf5/serial
-
         export CC=mpicc CXX=mpicxx F77=mpif77 FC=mpif90
         ./configure \
           --prefix=$SAMRAI2_INSTALL \
@@ -130,9 +128,6 @@ EOF
         make -j$(nproc)
         make install
 
-    # -------------------------------------------------------------
-    # IBAMR main build
-    # -------------------------------------------------------------
     - name: Cache IBAMR build
       id: cache-ibamr
       uses: actions/cache@v4
@@ -143,8 +138,9 @@ EOF
     - name: Build IBAMR
       if: steps.cache-ibamr.outputs.cache-hit != 'true'
       run: |
+        set -e
         cd IBAMR-0.18.0
-        rm -rf build
+        rm -rf build || true
         mkdir build && cd build
         cmake .. \
           -DCMAKE_BUILD_TYPE=Release \
@@ -153,21 +149,15 @@ EOF
           -DSAMRAI_ROOT=$SAMRAI2_INSTALL
         make -j$(nproc)
 
-    # -------------------------------------------------------------
-    # Python
-    # -------------------------------------------------------------
     - name: Setup Python
       run: |
         python3 -m pip install --upgrade pip
-        pip install numpy scipy matplotlib pandas
+        pip3 install numpy scipy matplotlib pandas
 
-    # -------------------------------------------------------------
-    # Build all IBAMR subprojects
-    # -------------------------------------------------------------
-    - name: Build Validation Framework
+    - name: Build IBAMR_Validation_Framework
       run: |
         cd IBAMR_Validation_Framework
-        rm -rf build
+        rm -rf build || true
         mkdir build && cd build
         cmake .. \
           -DIBAMR_DIR=${{ github.workspace }}/IBAMR-0.18.0/build \
@@ -177,10 +167,10 @@ EOF
           -DCMAKE_BUILD_TYPE=Release
         make -j$(nproc)
 
-    - name: Build Understand IBAMR Code
+    - name: Build IBAMR-understand-ibamr-code
       run: |
         cd IBAMR-understand-ibamr-code
-        rm -rf build
+        rm -rf build || true
         mkdir build && cd build
         cmake .. \
           -DIBAMR_DIR=${{ github.workspace }}/IBAMR-0.18.0/build \
@@ -190,10 +180,10 @@ EOF
           -DCMAKE_BUILD_TYPE=Release
         make -j$(nproc)
 
-    - name: Build Scalar Transport Standalone
+    - name: Build ScalarTransport_TestSuite_Standalone
       run: |
         cd ScalarTransport_TestSuite_Standalone
-        rm -rf build
+        rm -rf build || true
         mkdir build && cd build
         cmake .. \
           -DIBAMR_DIR=${{ github.workspace }}/IBAMR-0.18.0/build \
@@ -203,15 +193,9 @@ EOF
           -DCMAKE_BUILD_TYPE=Release
         make -j$(nproc)
 
-    # -------------------------------------------------------------
-    # MPI test
-    # -------------------------------------------------------------
     - name: Test MPI
       run: mpirun -np 2 echo "MPI OK"
 
-    # -------------------------------------------------------------
-    # Artifacts
-    # -------------------------------------------------------------
     - name: Upload artifacts
       if: always()
       uses: actions/upload-artifact@v4
@@ -224,14 +208,11 @@ EOF
           ScalarTransport_TestSuite_Standalone/build/
         if-no-files-found: warn
 
-    # -------------------------------------------------------------
-    # Summary
-    # -------------------------------------------------------------
     - name: Build Summary
       if: always()
       run: |
         echo "========================================"
         echo "PETSc:      ${{ steps.cache-petsc-build.outputs.cache-hit == 'true' && 'cached' || 'built' }}"
-        echo "SAMRAI2:    ${{ steps.cache-samrai.outputs.cache-hit == 'true' && 'cached' || 'built' }}"
+        echo "SAMRAI2:    ${{ steps.cache-samrai-build.outputs.cache-hit == 'true' && 'cached' || 'built' }}"
         echo "IBAMR:      ${{ steps.cache-ibamr.outputs.cache-hit == 'true' && 'cached' || 'built' }}"
         echo "========================================"
