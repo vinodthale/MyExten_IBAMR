@@ -151,7 +151,9 @@ jobs:
       uses: actions/cache@v4
       with:
         path: IBAMR-0.18.0/build
-        key: ${{ runner.os }}-ibamr-${{ hashFiles('IBAMR-0.18.0/**') }}
+        key: ${{ runner.os }}-ibamr-${{ hashFiles('IBAMR-0.18.0/CMakeLists.txt', 'IBAMR-0.18.0/src/**/*.h', 'IBAMR-0.18.0/src/**/*.cpp') }}
+        restore-keys: |
+          ${{ runner.os }}-ibamr-
 
 
     - name: Build IBAMR
