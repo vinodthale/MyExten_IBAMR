@@ -1,10 +1,12 @@
+diff --git a/source/toolbox/restartdb/HDFDatabaseFactory.C b/source/toolbox/restartdb/HDFDatabaseFactory.C
+index 1111111..2222222 100644
 --- a/source/toolbox/restartdb/HDFDatabaseFactory.C
 +++ b/source/toolbox/restartdb/HDFDatabaseFactory.C
 @@ -7,6 +7,7 @@
- //
+  */
 
  #include "tbox/HDFDatabaseFactory.h"
 +#include "tbox/HDFDatabase.h"
+ #include "tbox/Utilities.h"
 
- #ifdef DEBUG_NO_INLINE
- #include "tbox/HDFDatabaseFactory.I"
+ namespace SAMRAI {
