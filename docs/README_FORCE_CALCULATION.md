@@ -47,7 +47,7 @@ code FORCE_CALCULATION_EXPLAINED.md
 cd /path/to/your/simulation/output
 
 # Run verification script
-python3 /home/user/MyExten_IBAMR/verify_force_files.py
+python3 /home/user/MyExten_IBAMR/docs/verify_force_files.py
 
 # This will:
 # - Check file format

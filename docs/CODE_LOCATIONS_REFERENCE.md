@@ -378,7 +378,7 @@ head -20 Drag_CV_strct_id_0
 ### Run verification script:
 ```bash
 cd /path/to/simulation/output
-python3 /home/user/MyExten_IBAMR/verify_force_files.py
+python3 /home/user/MyExten_IBAMR/docs/verify_force_files.py
 ```
 
 ### Search source code:
