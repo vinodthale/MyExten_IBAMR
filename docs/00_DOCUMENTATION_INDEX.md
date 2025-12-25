@@ -104,6 +104,29 @@ calculate_rotational_momentum    = 0,0,1
 
 ---
 
+### 7. **NEW!** Power and Efficiency Calculations
+
+**File:** [`POWER_AND_EFFICIENCY_CALCULATIONS.md`](./POWER_AND_EFFICIENCY_CALCULATIONS.md)
+
+**What it covers:**
+- Propulsive efficiency equation (Liu et al., 1996)
+- Input power vs output power definitions
+- Leader/follower foil indexing (i=1, i=2)
+- How to compute ∫ c_L V_body ds integral
+- Complete workflow for efficiency calculation
+- MATLAB and Python post-processing scripts
+- IBAMR code instrumentation guide
+- Per-marker force and velocity extraction
+
+**Read this for:** Computing propulsive efficiency η = P_out / P_in for swimming bodies
+
+**Key equations:**
+```
+η_i = P_out,i / P_in,i = C_Tm,i / ∫ c_L,i(s,t) V_body,i(s,t) ds
+```
+
+---
+
 ## 🎯 Use Case Guide
 
 ### I want to understand...
@@ -132,6 +155,18 @@ calculate_rotational_momentum    = 0,0,1
 → Read: [`FORCE_CALCULATION_VISUAL_SUMMARY.md`](./FORCE_CALCULATION_VISUAL_SUMMARY.md)
 → Has flowcharts and diagrams
 
+#### "How do I compute propulsive efficiency?"
+→ Read: [`POWER_AND_EFFICIENCY_CALCULATIONS.md`](./POWER_AND_EFFICIENCY_CALCULATIONS.md)
+→ Complete workflow from simulation to efficiency calculation
+
+#### "What is input power vs output power?"
+→ Read: [`POWER_AND_EFFICIENCY_CALCULATIONS.md`](./POWER_AND_EFFICIENCY_CALCULATIONS.md)
+→ Section 2: Theoretical Background
+
+#### "How do I extract per-marker force and velocity data?"
+→ Read: [`POWER_AND_EFFICIENCY_CALCULATIONS.md`](./POWER_AND_EFFICIENCY_CALCULATIONS.md)
+→ Section 6: Implementation in IBAMR
+
 ---
 
 ## 🔬 Research Use Cases
@@ -150,6 +185,31 @@ calculate_rotational_momentum    = 0,0,1
 - At steady swimming, net force → 0
 
 **Documentation:** [`MOMENTUM_FLAGS_EXPLAINED.md`](./MOMENTUM_FLAGS_EXPLAINED.md)
+
+---
+
+### Propulsive Efficiency Analysis
+
+**Configuration:**
+```
+calculate_translational_momentum = 0,0,0  (tethered for thrust measurement)
+calculate_rotational_momentum    = 0,0,0
+```
+
+**What this does:**
+- Body deforms (swims) but stays in place
+- Enables accurate thrust measurement
+- Compute input power from marker forces/velocities
+- Compute output power from thrust
+- Calculate efficiency η = P_out / P_in
+
+**Documentation:** [`POWER_AND_EFFICIENCY_CALCULATIONS.md`](./POWER_AND_EFFICIENCY_CALCULATIONS.md)
+
+**Your use case:**
+- Leader/follower foils (i=1, i=2)
+- Compare efficiency of foils in tandem
+- Analyze hydrodynamic interaction effects
+- Quantify energy savings or penalties
 
 ---
 
@@ -331,6 +391,8 @@ Quick reference to important source files:
 | Momentum flags | `MOMENTUM_FLAGS_EXPLAINED.md` | Control swimming, not forces |
 | Tethered thrust | `README_TETHERED_BODY_FORCES.md` | All flags = 0 |
 | Quick start | `README_FORCE_CALCULATION.md` | Overview and verification |
+| Power & efficiency | `POWER_AND_EFFICIENCY_CALCULATIONS.md` | η = P_out / P_in |
+| Leader/follower | `POWER_AND_EFFICIENCY_CALCULATIONS.md` | Multi-body interactions |
 
 ---
 
@@ -342,6 +404,9 @@ These documents explain:
 - ✅ Immersed boundary methods (IB force calculation)
 - ✅ Fish swimming hydrodynamics (thrust production)
 - ✅ Experimental validation (tethered body measurements)
+- ✅ Propulsive efficiency theory (Liu et al., 1996)
+- ✅ Power calculations (input vs output power)
+- ✅ Multi-body hydrodynamic interactions (leader/follower)
 
 **Use these as teaching materials or references for your research papers!**
 
@@ -387,8 +452,8 @@ Before running your simulation, make sure you:
 ---
 
 **Last updated:** 2025-12-25
-**Total documentation:** 6 comprehensive guides + 1 verification script
-**Total lines documented:** ~2,000 lines of explanation
-**Source code coverage:** Complete force calculation pipeline
+**Total documentation:** 7 comprehensive guides + 1 verification script
+**Total lines documented:** ~3,000+ lines of explanation
+**Source code coverage:** Complete force calculation and efficiency analysis pipeline
 
 **Happy researching! 🐟🌊**
