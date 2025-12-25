@@ -55,6 +55,15 @@ MyExten_IBAMR/
 │   ├── examples/                   # Extended examples
 │   └── tests/                      # Additional tests
 │
+├── docs/                           # Force calculation & data analysis documentation
+│   ├── 00_DOCUMENTATION_INDEX.md   # Master documentation index
+│   ├── DATA_FILES_COMPLETE_GUIDE.md # Column-by-column data file descriptions
+│   ├── FORCE_CALCULATION_EXPLAINED.md # Physics of force calculation
+│   ├── README_TETHERED_BODY_FORCES.md # Tethered body simulations
+│   ├── MOMENTUM_FLAGS_EXPLAINED.md # Configuration flags explained
+│   ├── CODE_LOCATIONS_REFERENCE.md # Source code line numbers
+│   └── FORCE_CALCULATION_VISUAL_SUMMARY.md # Visual guide
+│
 └── README.md                       # This file
 ```
 
@@ -177,6 +186,23 @@ cd IBAMR-understand-ibamr-code/vinod/examples
 ---
 
 ## 📚 Documentation
+
+### IBAMR Force Calculation & Data Analysis
+
+**Complete documentation for understanding IBAMR force calculations and output files:**
+
+📖 **[START HERE: Documentation Index](docs/00_DOCUMENTATION_INDEX.md)**
+
+**Key Documentation Files:**
+- **[Data Files Guide](docs/DATA_FILES_COMPLETE_GUIDE.md)** - Complete column-by-column descriptions for FREE SWIMMING vs TETHERED cases
+- **[Force Calculation Physics](docs/FORCE_CALCULATION_EXPLAINED.md)** - How IBAMR computes forces (Reynolds Transport Theorem)
+- **[Tethered Body Forces](docs/README_TETHERED_BODY_FORCES.md)** - Thrust measurement on swimming bodies
+- **[Momentum Flags Explained](docs/MOMENTUM_FLAGS_EXPLAINED.md)** - What calculate_translational/rotational_momentum do
+- **[Code Locations](docs/CODE_LOCATIONS_REFERENCE.md)** - Exact line numbers in IBAMR source
+- **[Visual Summary](docs/FORCE_CALCULATION_VISUAL_SUMMARY.md)** - Flowcharts and diagrams
+- **[Verification Script](docs/verify_force_files.py)** - Python tool to verify force output files
+
+### IBAMR Official Documentation
 
 - **IBAMR Official Docs**: [ibamr.github.io](https://ibamr.github.io)
 - **Custom Integration Guide**: `IBAMR-understand-ibamr-code/vinod/INTEGRATION_GUIDE.md`

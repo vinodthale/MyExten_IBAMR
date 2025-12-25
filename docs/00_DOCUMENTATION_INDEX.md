@@ -207,7 +207,7 @@ calculate_rotational_momentum    = 0,0,0
 **How to use:**
 ```bash
 cd /path/to/simulation/output
-python3 /home/user/MyExten_IBAMR/verify_force_files.py
+python3 /home/user/MyExten_IBAMR/docs/verify_force_files.py
 ```
 
 ---
