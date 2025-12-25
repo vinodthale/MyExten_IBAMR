@@ -1,0 +1,402 @@
+================================================================================
+IBAMR EEL2D SIMULATION OUTPUT FILES - DATA STRUCTURE DOCUMENTATION
+================================================================================
+Simulation: NACA0012 Airfoil with Undulatory Swimming Motion
+Reynolds Number: 5609
+Domain: Periodic 2D (-6.52 to 1.48 in x, -1.52 to 2.48 in y)
+Simulation Time: 0.0001 to 10.0 seconds
+================================================================================
+
+TABLE OF CONTENTS:
+1. Control Volume Force/Torque Files (Main Directory)
+2. Body Kinematics Files (Eel2dStr/ Directory)
+3. Visualization Data (viz_eel2d_Str/ Directory)
+
+================================================================================
+SECTION 1: CONTROL VOLUME FORCE/TORQUE FILES (Main Directory)
+================================================================================
+
+--------------------------------------------------------------------------------
+FILE: Drag_CV_strct_id_0
+--------------------------------------------------------------------------------
+DESCRIPTION: Control volume drag forces on the structure
+FORMAT: Tab-separated text file, no header
+SIZE: ~3.9 MB
+
+COLUMNS:
+  Column 1: Time (s)                    - Simulation time
+  Column 2: Force_X (dimensionless)     - Force in X-direction (horizontal)
+  Column 3: Force_Y (dimensionless)     - Force in Y-direction (vertical)
+  Column 4: Force_Z (dimensionless)     - Force in Z-direction (always 0 for 2D)
+
+NOTES:
+  - Negative Force_X indicates drag (resistance to forward motion)
+  - Positive Force_X indicates thrust (propulsive force)
+  - Force_Y represents lateral forces
+  - Forces are non-dimensionalized by reference values
+
+EXAMPLE DATA:
+  0.0001    -4.743384505e-16    -5.204170428e-14    0
+  0.0002    -8.471861662        0.2589100502        0
+  0.0003    -6.49930693         0.7277841151        0
+
+
+--------------------------------------------------------------------------------
+FILE: Torque_CV_strct_id_0
+--------------------------------------------------------------------------------
+DESCRIPTION: Control volume torque on the structure
+FORMAT: Tab-separated text file, no header
+SIZE: ~2.6 MB
+
+COLUMNS:
+  Column 1: Time (s)                    - Simulation time
+  Column 2: Torque_X (dimensionless)    - Torque about X-axis (always 0 for 2D)
+  Column 3: Torque_Y (dimensionless)    - Torque about Y-axis (always 0 for 2D)
+  Column 4: Torque_Z (dimensionless)    - Torque about Z-axis (out-of-plane)
+
+NOTES:
+  - For 2D simulations, only Torque_Z is non-zero
+  - Torque represents rotational moments on the body
+  - Used to analyze turning and rotational dynamics
+
+EXAMPLE DATA:
+  0.0001    0    0    2.001611832e-07
+  0.0002    0    0    1.346856308
+  0.0003    0    0    1.198569398
+
+
+================================================================================
+SECTION 2: BODY KINEMATICS FILES (Eel2dStr/ Directory)
+================================================================================
+
+--------------------------------------------------------------------------------
+FILE: Eel2d_Drag_force_struct_no_0
+--------------------------------------------------------------------------------
+DESCRIPTION: Drag forces computed directly on the immersed body structure
+FORMAT: Tab-separated text file, no header
+SIZE: ~5.6 MB
+
+COLUMNS:
+  Column 1: Time (s)                    - Simulation time
+  Column 2: Drag_X (dimensionless)      - Drag force in X-direction
+  Column 3: Drag_Y (dimensionless)      - Drag force in Y-direction
+  Column 4: Drag_Z (dimensionless)      - Drag force in Z-direction (always 0)
+  Column 5: Drag_X_2 (dimensionless)    - Alternative/backup drag X (often near-zero)
+  Column 6: Drag_Y_2 (dimensionless)    - Alternative/backup drag Y (often near-zero)
+  Column 7: Drag_Z_2 (dimensionless)    - Alternative/backup drag Z (always 0)
+
+NOTES:
+  - Different from Drag_CV: computed on Lagrangian markers vs control volume
+  - Columns 5-7 appear to be numerical artifacts or alternative formulations
+  - Primary data is in columns 2-4
+
+EXAMPLE DATA:
+  0.0001    1.6173e-16     -1.64024e-13    0    1.35525e-16    2.1684e-14     0
+  0.0002    -8.47767       0.22772         0    0              -6.07153e-14   0
+  0.0003    -6.50137       0.693676        0    5.42101e-15    -8.67362e-15   0
+
+
+--------------------------------------------------------------------------------
+FILE: Eel2d_Torque_struct_no_0
+--------------------------------------------------------------------------------
+DESCRIPTION: Torque on the immersed body structure
+FORMAT: Tab-separated text file, no header
+SIZE: ~3.8 MB
+
+COLUMNS:
+  Column 1: Time (s)                    - Simulation time
+  Column 2: Torque_X (dimensionless)    - Torque about X-axis (always 0)
+  Column 3: Torque_Y (dimensionless)    - Torque about Y-axis (always 0)
+  Column 4: Torque_Z (dimensionless)    - Torque about Z-axis
+  Column 5: Torque_X_2 (dimensionless)  - Alternative/backup torque X (always 0)
+  Column 6: Torque_Y_2 (dimensionless)  - Alternative/backup torque Y (always 0)
+  Column 7: Torque_Z_2 (dimensionless)  - Alternative/backup torque Z
+
+NOTES:
+  - Only Column 4 (Torque_Z) contains meaningful data for 2D
+  - Columns 5-7 similar to drag file structure
+
+EXAMPLE DATA:
+  0.0001    0    0    -6.81331e-09    0    0    -6.81334e-09
+  0.0002    0    0    1.35109         0    0    0.000104892
+  0.0003    0    0    1.19561         0    0    0.000127248
+
+
+--------------------------------------------------------------------------------
+FILE: Eel2d_Power_spent_struct_no_0
+--------------------------------------------------------------------------------
+DESCRIPTION: Power expenditure by the swimming body
+FORMAT: Tab-separated text file, no header
+SIZE: ~5.5 MB
+
+COLUMNS:
+  Column 1: Time (s)                    - Simulation time
+  Column 2: Power_X (dimensionless)     - Power in X-direction
+  Column 3: Power_Y (dimensionless)     - Power in Y-direction
+  Column 4: Power_Z (dimensionless)     - Power in Z-direction (always 0)
+  Column 5: Power_X_2 (dimensionless)   - Alternative power X
+  Column 6: Power_Y_2 (dimensionless)   - Alternative power Y
+  Column 7: Power_Z_2 (dimensionless)   - Alternative power Z (always 0)
+
+NOTES:
+  - Power = Force × Velocity
+  - Used to calculate propulsive efficiency
+  - Negative power indicates energy extraction from fluid
+  - Positive power indicates energy input to fluid
+
+EXAMPLE DATA:
+  0.0001    -2.37371e-05    -0.00186937    0    0.00451424    15.8731    0
+  0.0002    0.08345         0.0304825      0    0.0043731     11.8031    0
+  0.0003    0.112409        0.0542858      0    0.00757462    9.36395    0
+
+
+--------------------------------------------------------------------------------
+FILE: Eel2d_Trans_vel_struct_no_0
+--------------------------------------------------------------------------------
+DESCRIPTION: Translational velocity of the body center of mass
+FORMAT: Tab-separated text file, no header
+SIZE: ~5.1 MB
+
+COLUMNS:
+  Column 1: Time (s)                    - Simulation time
+  Column 2: Velocity_X (dimensionless)  - Velocity in X-direction (swimming direction)
+  Column 3: Velocity_Y (dimensionless)  - Velocity in Y-direction (lateral)
+  Column 4: Velocity_Z (dimensionless)  - Velocity in Z-direction (always 0)
+  Column 5: Velocity_X_2 (dimensionless)- Alternative velocity X (often near-zero)
+  Column 6: Velocity_Y_2 (dimensionless)- Alternative velocity Y
+  Column 7: Velocity_Z_2 (dimensionless)- Alternative velocity Z (always 0)
+
+NOTES:
+  - Velocity_X shows swimming speed (typically negative = moving left)
+  - Velocity_Y shows lateral oscillations
+  - Column 6 (Velocity_Y_2) appears to be the primary lateral velocity
+  - Swimming speed increases from 0 as simulation starts
+
+EXAMPLE DATA:
+  0.0001    0              0              0    -9.07998e-08    0.0154151    0
+  0.0002    -0.00950706    0.00025537     0    -1.81488e-07    0.0154464    0
+  0.0003    -0.0167979     0.00103323     0    -3.12355e-07    0.0154777    0
+
+
+--------------------------------------------------------------------------------
+FILE: Eel2d_Rot_vel_struct_no_0
+--------------------------------------------------------------------------------
+DESCRIPTION: Rotational (angular) velocity of the body
+FORMAT: Tab-separated text file, no header
+SIZE: ~3.3 MB
+
+COLUMNS:
+  Column 1: Time (s)                    - Simulation time
+  Column 2: Omega_X (rad/s)             - Angular velocity about X-axis (always 0)
+  Column 3: Omega_Y (rad/s)             - Angular velocity about Y-axis (always 0)
+  Column 4: Omega_Z (rad/s)             - Angular velocity about Z-axis
+  Column 5: Omega_X_2 (rad/s)           - Alternative omega X (always 0)
+  Column 6: Omega_Y_2 (rad/s)           - Alternative omega Y (always 0)
+  Column 7: Omega_Z_2 (rad/s)           - Alternative omega Z
+
+NOTES:
+  - Omega_Z (Column 4) shows body rotation rate
+  - For straight swimming, rotation should be small
+  - Increasing values indicate body is rotating/turning
+
+EXAMPLE DATA:
+  0.0001    0    0    0              0    0    -0.058592
+  0.0002    0    0    0.0260337      0    0    -0.0582805
+  0.0003    0    0    0.0490714      0    0    -0.0579691
+
+
+--------------------------------------------------------------------------------
+FILE: Eel2d_COM_coordinates_struct_no_0
+--------------------------------------------------------------------------------
+DESCRIPTION: Center of mass (COM) position of the swimming body
+FORMAT: Tab-separated text file, no header
+SIZE: ~2.8 MB
+
+COLUMNS:
+  Column 1: Time (s)                    - Simulation time
+  Column 2: COM_X (dimensionless)       - X-coordinate of center of mass
+  Column 3: COM_Y (dimensionless)       - Y-coordinate of center of mass
+  Column 4: COM_Z (dimensionless)       - Z-coordinate of center of mass (always 0)
+
+NOTES:
+  - Tracks body position in domain
+  - COM_X should decrease if swimming to the left (negative velocity)
+  - COM_Y oscillates due to lateral undulations
+  - Initial position: approximately (-0.0758, -0.0099, 0)
+
+EXAMPLE DATA:
+  0.0001    -0.0758363    -0.0098918    0
+  0.0002    -0.0758368    -0.00989178   0
+  0.0003    -0.0758381    -0.00989172   0
+
+
+--------------------------------------------------------------------------------
+FILE: Eel2d_MOI_struct_no_0
+--------------------------------------------------------------------------------
+DESCRIPTION: Moment of inertia (MOI) tensor components
+FORMAT: Tab-separated text file, no header
+SIZE: ~5.2 MB
+
+COLUMNS:
+  Column 1: Time (s)                    - Simulation time
+  Column 2: I_XX (dimensionless)        - MOI about X-axis
+  Column 3: I_YY (dimensionless)        - MOI about Y-axis
+  Column 4: I_ZZ (dimensionless)        - MOI about Z-axis (always 0 for 2D)
+  Column 5: I_XY (dimensionless)        - Product of inertia XY
+  Column 6: I_YZ (dimensionless)        - Product of inertia YZ (always 0)
+  Column 7: I_ZX (dimensionless)        - Product of inertia ZX (always 0)
+  Column 8: MOI_2_XX                    - Alternative formulation
+  Column 9: MOI_2_YY                    - Alternative formulation
+  Column 10: Total/Combined MOI         - Combined moment of inertia
+
+NOTES:
+  - MOI changes due to body deformation during swimming
+  - For rigid bodies, these values would be constant
+  - Primary data in columns 2-7
+
+EXAMPLE DATA:
+  0.0001    8.61731    26.8139    0    26.8139    331.5    0    0    0    340.117
+  0.0002    8.61794    26.814     0    26.814     331.5    0    0    0    340.118
+  0.0003    8.61843    26.8133    0    26.8133    331.5    0    0    0    340.119
+
+
+--------------------------------------------------------------------------------
+FILE: Eel2d_EULERIAN_MOMENTUM.TXT
+--------------------------------------------------------------------------------
+DESCRIPTION: Total momentum of the fluid in the Eulerian (grid) reference frame
+FORMAT: Tab-separated text file, no header
+SIZE: ~3.4 MB
+
+COLUMNS:
+  Column 1: Time (s)                    - Simulation time
+  Column 2: Momentum_X (dimensionless)  - X-component of fluid momentum
+  Column 3: Momentum_Y (dimensionless)  - Y-component of fluid momentum
+  Column 4: Momentum_Z (dimensionless)  - Z-component of fluid momentum (always 0)
+
+NOTES:
+  - Represents momentum in the surrounding fluid
+  - Should be conserved in periodic domains (with body-fluid system)
+  - Negative momentum_X = net fluid motion to left
+  - Values are very small (order 10^-6 to 10^-5)
+
+EXAMPLE DATA:
+  0.0001    6.09864e-20     7.37257e-18     0
+  0.0002    -5.80868e-07    -3.11904e-06    0
+  0.0003    -8.64771e-07    -6.5315e-06     0
+
+
+================================================================================
+SECTION 3: VISUALIZATION DATA (viz_eel2d_Str/ Directory)
+================================================================================
+
+--------------------------------------------------------------------------------
+STRUCTURE: Silo Format Visualization Files
+--------------------------------------------------------------------------------
+
+MAIN INDEX FILE:
+  dumps.visit - VisIt-compatible database file listing all timesteps
+
+TIMESTEP DIRECTORIES:
+  Format: lag_data.cycle_NNNNNN/  (e.g., lag_data.cycle_000000, lag_data.cycle_000040)
+
+  Number of Snapshots: ~1600 (every 40 simulation cycles)
+  Time Interval: Every 0.004 seconds of simulation time
+
+FILES PER TIMESTEP:
+  - lag_data.cycle_NNNNNN.summary.silo  - Metadata and summary
+  - lag_data.proc_0000.silo through lag_data.proc_0005.silo - Data from 6 MPI processes
+
+CONTENTS:
+  - Lagrangian marker positions (immersed boundary points)
+  - Body shape at each timestep
+  - Force/velocity data on the body surface
+  - Possibly flow field variables (velocity, pressure, vorticity) if saved
+
+USAGE:
+  - Open dumps.visit file in VisIt visualization software
+  - Can be batch-exported to VTK using VisIt's Python CLI
+  - Can be read programmatically using pyvisfile library
+
+SIZE:
+  - Total visualization data: ~21+ GB
+  - Individual timestep: ~10-50 MB depending on AMR refinement
+
+
+================================================================================
+ADDITIONAL FILES IN MAIN DIRECTORY
+================================================================================
+
+FILE: IB2dEelStr.log
+  - Simulation log file with solver diagnostics
+  - Contains timestep information, solver convergence, timings
+  - SIZE: ~178 MB
+
+FILE: crash.log
+  - Debugging log from crashed/problematic runs
+  - SIZE: ~22 MB
+
+FILE: eel2d.vertex
+  - Initial vertex/marker positions for the immersed boundary
+  - Defines the NACA0012 airfoil shape
+  - SIZE: ~118 KB
+
+FILE: movie.mpg
+  - Compiled animation from visualization data
+  - SIZE: ~150 MB
+
+
+================================================================================
+USAGE RECOMMENDATIONS FOR POST-PROCESSING
+================================================================================
+
+1. TIME SERIES ANALYSIS (Easy - Python/MATLAB):
+   Files: All .txt files in Eel2dStr/, Drag_CV_strct_id_0, Torque_CV_strct_id_0
+   Tools: pandas, numpy, matplotlib
+
+2. PROPULSION METRICS:
+   - Average thrust: mean(Drag_CV_strct_id_0, column 2) over steady swimming
+   - Swimming speed: Eel2d_Trans_vel_struct_no_0, column 2
+   - Efficiency: thrust_power / total_power
+   - Strouhal number: from frequency analysis
+
+3. FLOW VISUALIZATION (Advanced - VisIt/ParaView):
+   Files: viz_eel2d_Str/ Silo databases
+   Tools: VisIt, ParaView, or Python (pyvisfile + PyVista)
+
+4. COMPARATIVE STUDIES:
+   Compare phi_0, phi_pi, phi_pi_4 directories to analyze phase effects
+
+
+================================================================================
+NOTES ON DATA INTERPRETATION
+================================================================================
+
+- All forces/velocities are NON-DIMENSIONAL
+  To dimensionalize: multiply by appropriate reference values
+  (Reference length L, velocity U, density ρ, etc.)
+
+- Simulation uses PERIODIC boundary conditions
+  Body can move through domain boundaries
+
+- NEGATIVE X-VELOCITY = Swimming to the LEFT (standard convention)
+  NEGATIVE DRAG = Resistance force
+  POSITIVE DRAG = Thrust force
+
+- Time resolution varies:
+  Body kinematics: every timestep (~0.0001 s)
+  Visualization: every 40 timesteps (~0.004 s)
+
+- Duplicate columns (e.g., columns 5-7 in many files) may represent:
+  * Alternative calculation methods
+  * Numerical artifacts
+  * Debugging outputs
+  Generally use columns 2-4 as primary data
+
+
+================================================================================
+END OF DOCUMENTATION
+================================================================================
+Generated: 2025-12-05
+Simulation: Eel2d Straightswimmer - NACA0012 - phi_0
+Author: Automated analysis
+================================================================================
