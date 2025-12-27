@@ -20,14 +20,77 @@ This document provides detailed descriptions of ALL output files from IBAMR simu
 
 # CONTROL VOLUME FORCE FILES
 
-These files are created by `IBHydrodynamicForceEvaluator` and use Reynolds Transport Theorem.
-**Location:** Main output directory
+These files are created by `CustomIBHydrodynamicForceEvaluator` (or standard `IBHydrodynamicForceEvaluator`) using Reynolds Transport Theorem applied to a moving control volume.
+
+**Location:** Main output directory (where simulation runs)
+
+---
+
+## Mathematical Formulation
+
+### Reynolds Transport Theorem for Forces
+
+The total hydrodynamic force on an immersed body is computed from a control volume (CV) surrounding the body:
+
+**Dimensional Equation:**
+```
+F⃗ = -d/dt∫∫∫_CV ρu⃗ dV + d/dt P⃗_body + ∫∫_∂CV (-pI + μ(∇u⃗ + ∇u⃗ᵀ))·n⃗ dA - ∫∫_∂CV ρ(u⃗·n⃗)u⃗ dA
+```
+
+**Decomposed into 4 components:**
+
+| Component | Symbol | Equation | Physical Meaning |
+|-----------|--------|----------|------------------|
+| **Unsteady** | `F_unsteady` | `-d/dt∫∫∫_CV ρu⃗ dV + d/dt P⃗_body` | Time rate of change of fluid + body momentum |
+| **Pressure** | `F_pressure` | `∫∫_∂CV (-pn⃗) dA` | Pressure traction on CV surface |
+| **Viscous** | `F_viscous` | `∫∫_∂CV μ(∇u⃗ + ∇u⃗ᵀ)·n⃗ dA` | Viscous stress on CV surface |
+| **Momentum** | `F_momentum` | `-∫∫_∂CV ρ(u⃗·n⃗)u⃗ dA` | Momentum flux across CV boundary |
+
+**Conservation Identity (verified to machine precision):**
+```
+F_total = F_pressure + F_viscous + F_momentum + F_unsteady
+```
+
+### Non-Dimensionalization
+
+All forces can be non-dimensionalized using dynamic pressure:
+
+```
+C_F = F / (0.5 ρ U_∞² L_ref A_ref)
+```
+
+Where:
+- `ρ`: Fluid density (kg/m³)
+- `U_∞`: Reference velocity (freestream or swimming speed) (m/s)
+- `L_ref`: Reference length (chord, body length) (m)
+- `A_ref`: Reference area (projected area or L_ref × span) (m²)
+
+**Example for 2D:**
+```
+C_D = F_x / (0.5 ρ U_∞² C)    # Drag coefficient
+C_L = F_y / (0.5 ρ U_∞² C)    # Lift coefficient
+```
+
+Where `C` is chord length and unit span length is assumed.
+
+---
 
 ## File: `Drag_CV_strct_id_0`
 
-**Created by:** `IBHydrodynamicForceEvaluator.cpp` (line 237)
+**Created by:** `CustomIBHydrodynamicForceEvaluator::postprocessIntegrateData()`
+**Code location:** `CustomIBHydrodynamicForceEvaluator.cpp` lines 860-865
+**Function call:**
+```cpp
+*force_obj.drag_CV_stream << new_time << '\t'
+                          << force_obj.F_new(0) << '\t'
+                          << force_obj.F_new(1) << '\t'
+                          << force_obj.F_new(2) << std::endl;
+```
+
 **Size:** ~3-4 MB for typical simulation
 **Format:** Tab-separated values
+**Equation computed:** `F_new = F_pressure + F_viscous + F_momentum + F_unsteady`
+**Code location for computation:** `CustomIBHydrodynamicForceEvaluator.cpp` line 839
 
 ### FREE SWIMMING Case
 
@@ -79,9 +142,20 @@ These files are created by `IBHydrodynamicForceEvaluator` and use Reynolds Trans
 
 ## File: `Torque_CV_strct_id_0`
 
-**Created by:** `IBHydrodynamicForceEvaluator.cpp` (line 238)
+**Created by:** `CustomIBHydrodynamicForceEvaluator::postprocessIntegrateData()`
+**Code location:** `CustomIBHydrodynamicForceEvaluator.cpp` lines 866-867
+**Function call:**
+```cpp
+*force_obj.torque_CV_stream << new_time << '\t'
+                            << force_obj.T_new(0) << '\t'
+                            << force_obj.T_new(1) << '\t'
+                            << force_obj.T_new(2) << std::endl;
+```
+
 **Size:** ~2-3 MB for typical simulation
 **Format:** Tab-separated values
+**Equation computed:** `T_new = -(L_box_new - L_box_current)/dt + (L_new - L_current)/dt + torque_trac`
+**Code location for computation:** `CustomIBHydrodynamicForceEvaluator.cpp` line 847
 
 ### FREE SWIMMING Case
 
@@ -118,6 +192,274 @@ These files are created by `IBHydrodynamicForceEvaluator` and use Reynolds Trans
 0.000100    0.000000    0.000000   -0.001234
 0.000200    0.000000    0.000000   -0.002345
 ```
+
+---
+
+## File: `Pressure_CV_strct_id_0`
+
+**Created by:** `CustomIBHydrodynamicForceEvaluator::postprocessIntegrateData()`
+**Code location:** `CustomIBHydrodynamicForceEvaluator.cpp` lines 870-871
+**Function call:**
+```cpp
+*force_obj.pressure_CV_stream << new_time << '\t'
+                              << force_obj.F_pressure_new(0) << '\t'
+                              << force_obj.F_pressure_new(1) << '\t'
+                              << force_obj.F_pressure_new(2) << std::endl;
+```
+
+**Size:** ~3-4 MB for typical simulation
+**Format:** Tab-separated values
+**Equation computed:** `F_pressure = ∫∫_∂CV (-p n⃗) dA`
+**Code location for computation:** `CustomIBHydrodynamicForceEvaluator.cpp` lines 734-736, 835
+
+### Physical Meaning
+
+**Pressure contribution** to total hydrodynamic force:
+- Represents pressure traction on the control volume surface (NOT body surface)
+- Includes both steady and unsteady pressure effects
+- Integrated over the CV boundary surface
+
+**Key implementation:**
+```cpp
+// Line 734-736: Accumulate pressure force
+IBTK::Vector3d pressure_force = -pn * dA;
+trac += pressure_force;           // Add to total
+trac_pressure += pressure_force;  // Track separately
+
+// Line 835: Store after MPI reduction
+fobj.F_pressure_new = trac_pressure;
+```
+
+### Both Cases (FREE SWIMMING and TETHERED)
+
+| Column | Name | Units | Description | Typical Range |
+|--------|------|-------|-------------|---------------|
+| 1 | `time` | seconds | Simulation time | 0.0 → end_time |
+| 2 | `Fp_x` | N (dimensional) or non-dim | Pressure force in x-direction | Oscillates |
+| 3 | `Fp_y` | N (dimensional) or non-dim | Pressure force in y-direction | Oscillates |
+| 4 | `Fp_z` | N (dimensional) or non-dim | Pressure force in z-direction | 0.0 (2D) |
+
+**Example data:**
+```
+# time       Fp_x        Fp_y        Fp_z
+0.000000    0.000000    0.000000    0.000000
+0.000100   -0.089123    0.008234    0.000000
+0.000200   -0.178456    0.016789    0.000000
+```
+
+---
+
+## File: `Viscous_CV_strct_id_0`
+
+**Created by:** `CustomIBHydrodynamicForceEvaluator::postprocessIntegrateData()`
+**Code location:** `CustomIBHydrodynamicForceEvaluator.cpp` lines 872-873
+**Function call:**
+```cpp
+*force_obj.viscous_CV_stream << new_time << '\t'
+                             << force_obj.F_viscous_new(0) << '\t'
+                             << force_obj.F_viscous_new(1) << '\t'
+                             << force_obj.F_viscous_new(2) << std::endl;
+```
+
+**Size:** ~3-4 MB for typical simulation
+**Format:** Tab-separated values
+**Equation computed:** `F_viscous = ∫∫_∂CV μ(∇u⃗ + ∇u⃗ᵀ)·n⃗ dA`
+**Code location for computation:** `CustomIBHydrodynamicForceEvaluator.cpp` lines 811-813, 836
+
+### Physical Meaning
+
+**Viscous stress contribution** to total hydrodynamic force:
+- Represents viscous traction on the control volume surface
+- Includes both normal and tangential viscous stresses
+- Proportional to fluid viscosity μ and velocity gradients
+
+**Key implementation:**
+```cpp
+// Line 811-813: Accumulate viscous force
+IBTK::Vector3d viscous_trac = n_dot_T * dA;
+trac += viscous_trac;
+trac_viscous += viscous_trac;
+
+// Line 836: Store after MPI reduction
+fobj.F_viscous_new = trac_viscous;
+```
+
+### Both Cases (FREE SWIMMING and TETHERED)
+
+| Column | Name | Units | Description | Typical Range |
+|--------|------|-------|-------------|---------------|
+| 1 | `time` | seconds | Simulation time | 0.0 → end_time |
+| 2 | `Fv_x` | N (dimensional) or non-dim | Viscous force in x-direction | Smaller than pressure |
+| 3 | `Fv_y` | N (dimensional) or non-dim | Viscous force in y-direction | Oscillates |
+| 4 | `Fv_z` | N (dimensional) or non-dim | Viscous force in z-direction | 0.0 (2D) |
+
+**Scaling:** At moderate Reynolds numbers (Re ~ 1000-10000), viscous forces are typically 10-30% of pressure forces.
+
+**Example data:**
+```
+# time       Fv_x        Fv_y        Fv_z
+0.000000    0.000000    0.000000    0.000000
+0.000100   -0.012345    0.001234    0.000000
+0.000200   -0.024567    0.002456    0.000000
+```
+
+---
+
+## File: `Momentum_CV_strct_id_0`
+
+**Created by:** `CustomIBHydrodynamicForceEvaluator::postprocessIntegrateData()`
+**Code location:** `CustomIBHydrodynamicForceEvaluator.cpp` lines 874-875
+**Function call:**
+```cpp
+*force_obj.momentum_CV_stream << new_time << '\t'
+                              << force_obj.F_momentum_new(0) << '\t'
+                              << force_obj.F_momentum_new(1) << '\t'
+                              << force_obj.F_momentum_new(2) << std::endl;
+```
+
+**Size:** ~3-4 MB for typical simulation
+**Format:** Tab-separated values
+**Equation computed:** `F_momentum = -∫∫_∂CV ρ(u⃗·n⃗)u⃗ dA`
+**Code location for computation:** `CustomIBHydrodynamicForceEvaluator.cpp` lines 757-759, 837
+
+### Physical Meaning
+
+**Momentum flux contribution** to total hydrodynamic force:
+- Represents convective momentum transport across CV boundary
+- Captures wake effects and jet formation
+- Important for swimming/propulsion analysis
+
+**Key implementation:**
+```cpp
+// Line 757-759: Accumulate momentum flux
+IBTK::Vector3d momentum_force = -d_rho * n.dot(u) * u * dA;
+trac += momentum_force;
+trac_momentum += momentum_force;
+
+// Line 837: Store after MPI reduction
+fobj.F_momentum_new = trac_momentum;
+```
+
+### Both Cases (FREE SWIMMING and TETHERED)
+
+| Column | Name | Units | Description | Typical Range |
+|--------|------|-------|-------------|---------------|
+| 1 | `time` | seconds | Simulation time | 0.0 → end_time |
+| 2 | `Fm_x` | N (dimensional) or non-dim | Momentum flux in x-direction | Oscillates |
+| 3 | `Fm_y` | N (dimensional) or non-dim | Momentum flux in y-direction | Oscillates |
+| 4 | `Fm_z` | N (dimensional) or non-dim | Momentum flux in z-direction | 0.0 (2D) |
+
+**Significance:**
+- For tethered swimming: captures thrust generation from wake momentum
+- For free swimming: represents momentum exchange with surrounding fluid
+- Can be negative (fluid flowing into CV) or positive (fluid flowing out)
+
+**Example data:**
+```
+# time       Fm_x        Fm_y        Fm_z
+0.000000    0.000000    0.000000    0.000000
+0.000100   -0.022111    0.003001    0.000000
+0.000200   -0.044234    0.006123    0.000000
+```
+
+---
+
+## File: `Unsteady_CV_strct_id_0`
+
+**Created by:** `CustomIBHydrodynamicForceEvaluator::postprocessIntegrateData()`
+**Code location:** `CustomIBHydrodynamicForceEvaluator.cpp` lines 876-877
+**Function call:**
+```cpp
+*force_obj.unsteady_CV_stream << new_time << '\t'
+                              << force_obj.F_unsteady_new(0) << '\t'
+                              << force_obj.F_unsteady_new(1) << '\t'
+                              << force_obj.F_unsteady_new(2) << std::endl;
+```
+
+**Size:** ~3-4 MB for typical simulation
+**Format:** Tab-separated values
+**Equation computed:** `F_unsteady = -d/dt∫∫∫_CV ρu⃗ dV + d/dt P⃗_body`
+**Code location for computation:** `CustomIBHydrodynamicForceEvaluator.cpp` line 840
+
+### Physical Meaning
+
+**Unsteady (inertial) contribution** to total hydrodynamic force:
+- Time rate of change of fluid momentum in control volume
+- Time rate of change of body momentum
+- Dominant during acceleration/deceleration
+- Small during steady periodic motion
+
+**Key implementation:**
+```cpp
+// Line 840: Compute unsteady component
+fobj.F_unsteady_new = -(fobj.P_box_new - fobj.P_box_current) / dt  // Fluid momentum change
+                    + (fobj.P_new - fobj.P_current) / dt;          // Body momentum change
+```
+
+Where:
+- `P_box_new/current`: Fluid momentum `∫∫∫_CV ρu⃗ dV`
+- `P_new/current`: Body momentum `M_body v⃗_body`
+- `dt`: Timestep size
+
+### Both Cases (FREE SWIMMING and TETHERED)
+
+| Column | Name | Units | Description | Typical Range |
+|--------|------|-------|-------------|---------------|
+| 1 | `time` | seconds | Simulation time | 0.0 → end_time |
+| 2 | `Fu_x` | N (dimensional) or non-dim | Unsteady force in x-direction | Large initially, small later |
+| 3 | `Fu_y` | N (dimensional) or non-dim | Unsteady force in y-direction | Oscillates |
+| 4 | `Fu_z` | N (dimensional) or non-dim | Unsteady force in z-direction | 0.0 (2D) |
+
+**Behavior:**
+- **Startup phase** (t < 2-3 periods): Large as flow develops
+- **Periodic steady state**: Small oscillations around mean
+- **FREE SWIMMING**: Non-zero during acceleration, near-zero at steady speed
+- **TETHERED**: Periodic oscillations at swimming frequency
+
+**Example data:**
+```
+# time       Fu_x        Fu_y        Fu_z
+0.000000    0.000000    0.000000    0.000000
+0.000100   -0.000123    0.000011    0.000000
+0.000200   -0.000234    0.000022    0.000000
+```
+
+---
+
+### Force Conservation Verification
+
+**CRITICAL:** All four components must sum to the total force at every timestep:
+
+```
+F_total = F_pressure + F_viscous + F_momentum + F_unsteady
+```
+
+**Verification script (Python):**
+
+```python
+import numpy as np
+
+# Load all force components
+t, Fx_total, Fy_total, Fz_total = np.loadtxt('Drag_CV_strct_id_0', unpack=True)
+_, Fx_p, Fy_p, Fz_p = np.loadtxt('Pressure_CV_strct_id_0', unpack=True)
+_, Fx_v, Fy_v, Fz_v = np.loadtxt('Viscous_CV_strct_id_0', unpack=True)
+_, Fx_m, Fy_m, Fz_m = np.loadtxt('Momentum_CV_strct_id_0', unpack=True)
+_, Fx_u, Fy_u, Fz_u = np.loadtxt('Unsteady_CV_strct_id_0', unpack=True)
+
+# Verify conservation (should be ~1e-14 machine precision)
+err_x = np.abs(Fx_total - (Fx_p + Fx_v + Fx_m + Fx_u))
+err_y = np.abs(Fy_total - (Fy_p + Fy_v + Fy_m + Fy_u))
+err_z = np.abs(Fz_total - (Fz_p + Fz_v + Fz_m + Fz_u))
+
+max_error = max([np.max(err_x), np.max(err_y), np.max(err_z)])
+print(f'Maximum decomposition error: {max_error:.3e}')
+# Expected output: Maximum decomposition error: ~1e-14
+```
+
+**If conservation fails:**
+- Error > 1e-10: Check that all 4 component files exist
+- Missing `Unsteady_CV` file: Common error, verify CustomIBHydrodynamicForceEvaluator has unsteady output
+- Large error (> 1e-6): Numerical issue, check timestep size and mesh resolution
 
 ---
 
