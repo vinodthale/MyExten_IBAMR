@@ -73,7 +73,7 @@ namespace IBAMR
 
 /////////////////////////////// PUBLIC ///////////////////////////////////////
 
-CustomIBHydrodynamicForceEvaluator::IBHydrodynamicForceEvaluator(std::string object_name,
+CustomIBHydrodynamicForceEvaluator::CustomIBHydrodynamicForceEvaluator(std::string object_name,
                                                            double rho,
                                                            double mu,
                                                            double current_time,
@@ -101,7 +101,7 @@ CustomIBHydrodynamicForceEvaluator::IBHydrodynamicForceEvaluator(std::string obj
     return;
 } // IBHydrodynamicForceEvaluator
 
-CustomIBHydrodynamicForceEvaluator::~IBHydrodynamicForceEvaluator()
+CustomIBHydrodynamicForceEvaluator::~CustomIBHydrodynamicForceEvaluator()
 {
     VariableDatabase<NDIM>* var_db = VariableDatabase<NDIM>::getDatabase();
     var_db->removePatchDataIndex(d_u_idx);
