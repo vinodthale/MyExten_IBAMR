@@ -156,7 +156,7 @@ public:
         std::ofstream *drag_CV_stream, *torque_CV_stream;
 
         // Separate file streams for force components
-        std::ofstream *pressure_CV_stream, *viscous_CV_stream, *momentum_CV_stream;
+        std::ofstream *pressure_CV_stream, *viscous_CV_stream, *momentum_CV_stream, *unsteady_CV_stream;
 
     }; // IBHydrodynamicForceObject
 

@@ -255,11 +255,13 @@ CustomIBHydrodynamicForceEvaluator::registerStructure(IBTK::Vector3d& box_X_lowe
             force_obj.pressure_CV_stream = new std::ofstream("Pressure_CV_strct_id_" + strct_id_str, std::fstream::app);
             force_obj.viscous_CV_stream = new std::ofstream("Viscous_CV_strct_id_" + strct_id_str, std::fstream::app);
             force_obj.momentum_CV_stream = new std::ofstream("Momentum_CV_strct_id_" + strct_id_str, std::fstream::app);
+            force_obj.unsteady_CV_stream = new std::ofstream("Unsteady_CV_strct_id_" + strct_id_str, std::fstream::app);
             (force_obj.drag_CV_stream)->precision(10);
             (force_obj.torque_CV_stream)->precision(10);
             (force_obj.pressure_CV_stream)->precision(10);
             (force_obj.viscous_CV_stream)->precision(10);
             (force_obj.momentum_CV_stream)->precision(10);
+            (force_obj.unsteady_CV_stream)->precision(10);
         }
         else
         {
@@ -268,11 +270,13 @@ CustomIBHydrodynamicForceEvaluator::registerStructure(IBTK::Vector3d& box_X_lowe
             force_obj.pressure_CV_stream = new std::ofstream("Pressure_CV_strct_id_" + strct_id_str, std::fstream::out);
             force_obj.viscous_CV_stream = new std::ofstream("Viscous_CV_strct_id_" + strct_id_str, std::fstream::out);
             force_obj.momentum_CV_stream = new std::ofstream("Momentum_CV_strct_id_" + strct_id_str, std::fstream::out);
+            force_obj.unsteady_CV_stream = new std::ofstream("Unsteady_CV_strct_id_" + strct_id_str, std::fstream::out);
             (force_obj.drag_CV_stream)->precision(10);
             (force_obj.torque_CV_stream)->precision(10);
             (force_obj.pressure_CV_stream)->precision(10);
             (force_obj.viscous_CV_stream)->precision(10);
             (force_obj.momentum_CV_stream)->precision(10);
+            (force_obj.unsteady_CV_stream)->precision(10);
         }
     }
 
@@ -869,6 +873,8 @@ CustomIBHydrodynamicForceEvaluator::postprocessIntegrateData(double /*current_ti
                                          << force_obj.F_viscous_new(1) << '\t' << force_obj.F_viscous_new(2) << std::endl;
             *force_obj.momentum_CV_stream << new_time << '\t' << force_obj.F_momentum_new(0) << '\t'
                                           << force_obj.F_momentum_new(1) << '\t' << force_obj.F_momentum_new(2) << std::endl;
+            *force_obj.unsteady_CV_stream << new_time << '\t' << force_obj.F_unsteady_new(0) << '\t'
+                                          << force_obj.F_unsteady_new(1) << '\t' << force_obj.F_unsteady_new(2) << std::endl;
         }
         d_current_time = new_time;
         force_obj.box_u_current = force_obj.box_u_new;
