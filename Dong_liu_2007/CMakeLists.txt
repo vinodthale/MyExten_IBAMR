@@ -1,7 +1,7 @@
 PROJECT(eel2d)
 CMAKE_MINIMUM_REQUIRED(VERSION 3.15.0)
 
-SET(SOURCE_FILES example.cpp IBEELKinematics.cpp)
+SET(SOURCE_FILES example.cpp IBEELKinematics.cpp CustomIBHydrodynamicForceEvaluator.cpp)
 ADD_EXECUTABLE(main2d ${SOURCE_FILES})
 
 FIND_PACKAGE(IBAMR REQUIRED)

@@ -26,7 +26,7 @@
 // Headers for application-specific algorithm/data structure objects
 #include <ibamr/ConstraintIBMethod.h>
 #include <ibamr/IBExplicitHierarchyIntegrator.h>
-#include <ibamr/IBHydrodynamicForceEvaluator.h>
+#include "CustomIBHydrodynamicForceEvaluator.h"
 #include <ibamr/IBStandardForceGen.h>
 #include <ibamr/IBStandardInitializer.h>
 #include <ibamr/INSCollocatedHierarchyIntegrator.h>
@@ -249,8 +249,8 @@ main(int argc, char* argv[])
         double rho_fluid = input_db->getDouble("RHO");
         double mu_fluid = input_db->getDouble("MU");
         double start_time = time_integrator->getIntegratorTime();
-        Pointer<IBHydrodynamicForceEvaluator> hydro_force =
-            new IBHydrodynamicForceEvaluator("IBHydrodynamicForce", rho_fluid, mu_fluid, start_time, true);
+        Pointer<CustomIBHydrodynamicForceEvaluator> hydro_force =
+            new CustomIBHydrodynamicForceEvaluator("IBHydrodynamicForce", rho_fluid, mu_fluid, start_time, true);
 
         // =============================================================================
         // REGISTER CONTROL VOLUMES FOR 4 FISH
