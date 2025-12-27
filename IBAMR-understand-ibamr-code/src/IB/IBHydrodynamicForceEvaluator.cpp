@@ -191,6 +191,12 @@ IBHydrodynamicForceEvaluator::registerStructure(IBTK::Vector3d& box_X_lower,
         force_obj.P_box_current.setZero();
         force_obj.L_box_current.setZero();
         force_obj.r0.setZero();
+
+        // Initialize separated force components to zero
+        force_obj.F_pressure_current.setZero();
+        force_obj.F_viscous_current.setZero();
+        force_obj.F_momentum_current.setZero();
+        force_obj.F_unsteady_current.setZero();
     }
     else
     {
@@ -218,6 +224,23 @@ IBHydrodynamicForceEvaluator::registerStructure(IBTK::Vector3d& box_X_lower,
         db->getDoubleArray("X_hi_" + strct_id_str, force_obj.box_X_upper_current.data(), 3);
         db->getDoubleArray("r_or_" + strct_id_str, force_obj.r0.data(), 3);
         force_obj.box_vol_current = db->getDouble("vol_curr_" + strct_id_str);
+
+        // Load separated force components from restart (if available)
+        if (db->keyExists("F_pressure_" + strct_id_str))
+        {
+            db->getDoubleArray("F_pressure_" + strct_id_str, force_obj.F_pressure_current.data(), 3);
+            db->getDoubleArray("F_viscous_" + strct_id_str, force_obj.F_viscous_current.data(), 3);
+            db->getDoubleArray("F_momentum_" + strct_id_str, force_obj.F_momentum_current.data(), 3);
+            db->getDoubleArray("F_unsteady_" + strct_id_str, force_obj.F_unsteady_current.data(), 3);
+        }
+        else
+        {
+            // Initialize to zero if not present in restart file (backward compatibility)
+            force_obj.F_pressure_current.setZero();
+            force_obj.F_viscous_current.setZero();
+            force_obj.F_momentum_current.setZero();
+            force_obj.F_unsteady_current.setZero();
+        }
     }
 
     // Set up the streams for printing drag and torque
@@ -229,15 +252,27 @@ IBHydrodynamicForceEvaluator::registerStructure(IBTK::Vector3d& box_X_lower,
         {
             force_obj.drag_CV_stream = new std::ofstream("Drag_CV_strct_id_" + strct_id_str, std::fstream::app);
             force_obj.torque_CV_stream = new std::ofstream("Torque_CV_strct_id_" + strct_id_str, std::fstream::app);
+            force_obj.pressure_CV_stream = new std::ofstream("Pressure_CV_strct_id_" + strct_id_str, std::fstream::app);
+            force_obj.viscous_CV_stream = new std::ofstream("Viscous_CV_strct_id_" + strct_id_str, std::fstream::app);
+            force_obj.momentum_CV_stream = new std::ofstream("Momentum_CV_strct_id_" + strct_id_str, std::fstream::app);
             (force_obj.drag_CV_stream)->precision(10);
             (force_obj.torque_CV_stream)->precision(10);
+            (force_obj.pressure_CV_stream)->precision(10);
+            (force_obj.viscous_CV_stream)->precision(10);
+            (force_obj.momentum_CV_stream)->precision(10);
         }
         else
         {
             force_obj.drag_CV_stream = new std::ofstream("Drag_CV_strct_id_" + strct_id_str, std::fstream::out);
             force_obj.torque_CV_stream = new std::ofstream("Torque_CV_strct_id_" + strct_id_str, std::fstream::out);
+            force_obj.pressure_CV_stream = new std::ofstream("Pressure_CV_strct_id_" + strct_id_str, std::fstream::out);
+            force_obj.viscous_CV_stream = new std::ofstream("Viscous_CV_strct_id_" + strct_id_str, std::fstream::out);
+            force_obj.momentum_CV_stream = new std::ofstream("Momentum_CV_strct_id_" + strct_id_str, std::fstream::out);
             (force_obj.drag_CV_stream)->precision(10);
             (force_obj.torque_CV_stream)->precision(10);
+            (force_obj.pressure_CV_stream)->precision(10);
+            (force_obj.viscous_CV_stream)->precision(10);
+            (force_obj.momentum_CV_stream)->precision(10);
         }
     }
 
@@ -617,10 +652,16 @@ IBHydrodynamicForceEvaluator::computeHydrodynamicForce(int u_idx,
         IBTK_MPI::sumReduction(fobj.P_box_new.data(), 3);
         IBTK_MPI::sumReduction(fobj.L_box_new.data(), 3);
 
-        // Compute surface integral term.
+        // Compute surface integral term - separated into components
         IBTK::Vector3d trac, torque_trac;
         trac.setZero();
         torque_trac.setZero();
+
+        // Separate force components
+        IBTK::Vector3d trac_pressure, trac_viscous, trac_momentum;
+        trac_pressure.setZero();
+        trac_viscous.setZero();
+        trac_momentum.setZero();
 
         for (int ln = finest_ln; ln >= coarsest_ln; --ln)
         {
@@ -690,7 +731,9 @@ IBHydrodynamicForceEvaluator::computeHydrodynamicForce(int u_idx,
                             IBTK::Vector3d pn = 0.5 * n * ((*p_data)(cell_idx) + (*p_data)(cell_nbr_idx));
 
                             // Pressure force := (n. -p I) * dA
-                            trac += -pn * dA;
+                            IBTK::Vector3d pressure_force = -pn * dA;
+                            trac += pressure_force;
+                            trac_pressure += pressure_force;
 
                             // Pressure torque := r x (-p n I) * dA
                             torque_trac += r_vec.cross(-pn) * dA;
@@ -711,7 +754,9 @@ IBHydrodynamicForceEvaluator::computeHydrodynamicForce(int u_idx,
                                                    (*u_data)(SideIndex<NDIM>(cell_nbr_idx, d, SideIndex<NDIM>::Upper)));
                                 }
                             }
-                            trac += -d_rho * n.dot(u) * u * dA;
+                            IBTK::Vector3d momentum_force = -d_rho * n.dot(u) * u * dA;
+                            trac += momentum_force;
+                            trac_momentum += momentum_force;
 
                             // Momentum torque := -(n. u) * rho * (r x u) * dA
                             torque_trac += -n.dot(u) * d_rho * r_vec.cross(u) * dA;
@@ -763,7 +808,9 @@ IBHydrodynamicForceEvaluator::computeHydrodynamicForce(int u_idx,
                             }
                             IBTK::Vector3d n_dot_T = n(axis) * viscous_force;
 
-                            trac += n_dot_T * dA;
+                            IBTK::Vector3d viscous_trac = n_dot_T * dA;
+                            trac += viscous_trac;
+                            trac_viscous += viscous_trac;
 
                             // Viscous traction torque r x ( n . mu(grad u + grad u ^ T) * dA
                             torque_trac += r_vec.cross(n_dot_T) * dA;
@@ -774,6 +821,19 @@ IBHydrodynamicForceEvaluator::computeHydrodynamicForce(int u_idx,
         }
         IBTK_MPI::sumReduction(trac.data(), 3);
         IBTK_MPI::sumReduction(torque_trac.data(), 3);
+
+        // MPI reductions for separated force components
+        IBTK_MPI::sumReduction(trac_pressure.data(), 3);
+        IBTK_MPI::sumReduction(trac_viscous.data(), 3);
+        IBTK_MPI::sumReduction(trac_momentum.data(), 3);
+
+        // Store separated surface traction components
+        fobj.F_pressure_new = trac_pressure;
+        fobj.F_viscous_new = trac_viscous;
+        fobj.F_momentum_new = trac_momentum;
+
+        // Compute and store unsteady component
+        fobj.F_unsteady_new = -(fobj.P_box_new - fobj.P_box_current) / dt + (fobj.P_new - fobj.P_current) / dt;
 
         // Compute hydrodynamic force on the body : -integral_{box_new} (rho du/dt) + d/dt(rho u)_body + trac
         fobj.F_new = -(fobj.P_box_new - fobj.P_box_current) / dt + (fobj.P_new - fobj.P_current) / dt + trac;
@@ -801,6 +861,14 @@ IBHydrodynamicForceEvaluator::postprocessIntegrateData(double /*current_time*/, 
                                       << force_obj.F_new(2) << std::endl;
             *force_obj.torque_CV_stream << new_time << '\t' << force_obj.T_new(0) << '\t' << force_obj.T_new(1) << '\t'
                                         << force_obj.T_new(2) << std::endl;
+
+            // Output separated force components
+            *force_obj.pressure_CV_stream << new_time << '\t' << force_obj.F_pressure_new(0) << '\t'
+                                          << force_obj.F_pressure_new(1) << '\t' << force_obj.F_pressure_new(2) << std::endl;
+            *force_obj.viscous_CV_stream << new_time << '\t' << force_obj.F_viscous_new(0) << '\t'
+                                         << force_obj.F_viscous_new(1) << '\t' << force_obj.F_viscous_new(2) << std::endl;
+            *force_obj.momentum_CV_stream << new_time << '\t' << force_obj.F_momentum_new(0) << '\t'
+                                          << force_obj.F_momentum_new(1) << '\t' << force_obj.F_momentum_new(2) << std::endl;
         }
         d_current_time = new_time;
         force_obj.box_u_current = force_obj.box_u_new;
@@ -813,6 +881,12 @@ IBHydrodynamicForceEvaluator::postprocessIntegrateData(double /*current_time*/, 
         force_obj.L_current = force_obj.L_new;
         force_obj.P_box_current = force_obj.P_box_new;
         force_obj.L_box_current = force_obj.L_box_new;
+
+        // Update separated force components
+        force_obj.F_pressure_current = force_obj.F_pressure_new;
+        force_obj.F_viscous_current = force_obj.F_viscous_new;
+        force_obj.F_momentum_current = force_obj.F_momentum_new;
+        force_obj.F_unsteady_current = force_obj.F_unsteady_new;
     }
 
     return;
@@ -839,6 +913,12 @@ IBHydrodynamicForceEvaluator::putToDatabase(SAMRAI::tbox::Pointer<SAMRAI::tbox::
         db->putDoubleArray("X_hi_" + strct_id_str, force_obj.box_X_upper_current.data(), 3);
         db->putDoubleArray("r_or_" + strct_id_str, force_obj.r0.data(), 3);
         db->putDouble("vol_curr_" + strct_id_str, force_obj.box_vol_current);
+
+        // Save separated force components to restart
+        db->putDoubleArray("F_pressure_" + strct_id_str, force_obj.F_pressure_current.data(), 3);
+        db->putDoubleArray("F_viscous_" + strct_id_str, force_obj.F_viscous_current.data(), 3);
+        db->putDoubleArray("F_momentum_" + strct_id_str, force_obj.F_momentum_current.data(), 3);
+        db->putDoubleArray("F_unsteady_" + strct_id_str, force_obj.F_unsteady_current.data(), 3);
     }
 
     return;
