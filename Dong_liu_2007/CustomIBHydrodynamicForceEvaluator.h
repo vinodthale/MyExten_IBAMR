@@ -13,8 +13,8 @@
 
 /////////////////////////////// INCLUDE GUARD ////////////////////////////////
 
-#ifndef included_CustomCustomIBHydrodynamicForceEvaluator
-#define included_CustomCustomIBHydrodynamicForceEvaluator
+#ifndef included_CustomIBHydrodynamicForceEvaluator
+#define included_CustomIBHydrodynamicForceEvaluator
 
 #include <ibamr/config.h>
 
@@ -76,7 +76,7 @@ class RobinBcCoefStrategy;
 namespace IBAMR
 {
 /*!
- * \brief Class CustomIBHydrodynamicForceEvaluator computes hydrodynamic force and
+ * \brief Class IBHydrodynamicForceEvaluator computes hydrodynamic force and
  * torque on immersed bodies. The class uses Reynolds transport theorem to integrate
  * momentum over a Cartesian box region that moves with an arbitrary rigid body
  * translation velocity.
@@ -94,7 +94,7 @@ namespace IBAMR
  * \note  Various IB methods need to provide linear and angular momentum of the
  *  enclosed body to the class.
  */
-class CustomCustomIBHydrodynamicForceEvaluator : public SAMRAI::tbox::Serializable
+class CustomIBHydrodynamicForceEvaluator : public SAMRAI::tbox::Serializable
 {
 public:
     /*!
@@ -393,4 +393,4 @@ private:
 
 //////////////////////////////////////////////////////////////////////////////
 
-#endif // #ifndef included_CustomIBHydrodynamicForceEvaluator
+#endif // #ifndef included_IBHydrodynamicForceEvaluator
