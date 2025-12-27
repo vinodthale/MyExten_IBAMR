@@ -125,6 +125,10 @@ public:
         IBTK::Vector3d F_current, T_current, P_current, L_current;
         IBTK::Vector3d F_new, T_new, P_new, L_new;
 
+        // Force components (pressure, viscous, momentum flux, unsteady)
+        IBTK::Vector3d F_pressure_current, F_viscous_current, F_momentum_current, F_unsteady_current;
+        IBTK::Vector3d F_pressure_new, F_viscous_new, F_momentum_new, F_unsteady_new;
+
         // Origin of the r vector from which torque is calculated
         IBTK::Vector3d r0;
 
@@ -150,6 +154,9 @@ public:
 
         // File streams associated for the output.
         std::ofstream *drag_CV_stream, *torque_CV_stream;
+
+        // Separate file streams for force components
+        std::ofstream *pressure_CV_stream, *viscous_CV_stream, *momentum_CV_stream;
 
     }; // IBHydrodynamicForceObject
 
