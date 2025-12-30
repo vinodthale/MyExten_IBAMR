@@ -1,5 +1,69 @@
 # <basename>_Power_spent_struct_no_N
 
+## ⚠️ CRITICAL: Tethered vs Free Swimming — Which Power File to Use?
+
+This file (`Power_spent_struct_no_N`) computes power using **global rigid-body motion**.
+
+### **📊 Summary Table: When to Use This File**
+
+| Simulation Type | V_COM | This File Output | Use for Efficiency? |
+|----------------|-------|------------------|---------------------|
+| **Free Swimming** | V_COM ≠ 0 | P_trans = F · V_COM ≠ 0 | ✅ Yes (Method 1) |
+| **Tethered** | V_COM = 0 | P_trans = F · V_COM ≈ 0 | ❌ NO! Use Method 2 |
+
+### **For TETHERED Simulations (Your Case):**
+
+```
+╔══════════════════════════════════════════════════════════════╗
+║  ⚠️ WARNING: This file will show P_trans ≈ 0 for TETHERED  ║
+║                                                              ║
+║  Why? Because:                                               ║
+║    P_trans = F_hydro · V_COM = F × 0 = 0                    ║
+║                                                              ║
+║  But the body IS doing work!                                 ║
+║    - Local deformation in x and y                            ║
+║    - Body undulates                                          ║
+║    - COM is fixed, but local points move                     ║
+║                                                              ║
+║  ✓ CORRECT approach for tethered efficiency:                ║
+║    Use Method 2 (local force-velocity integral)             ║
+║    P_in = ∫ f_hydro(s,t) · v_body(s,t) ds                   ║
+║                                                              ║
+║  DO NOT use P_trans from this file for efficiency!          ║
+╚══════════════════════════════════════════════════════════════╝
+```
+
+**What this file DOES provide for tethered:**
+- ✅ Verification that COM is truly fixed (V_COM ≈ 0)
+- ✅ Monitoring that simulation is stable
+- ✅ Checking force magnitudes
+- ❌ **NOT** the power for efficiency calculations
+
+**What you NEED for tethered efficiency:**
+- ✓ Per-marker force and velocity data (`Hydrofoil_marker_data.txt`)
+- ✓ Local force-velocity integral (see Method 2 below)
+- ✓ MATLAB script: `calculate_efficiency.m`
+
+### **For FREE SWIMMING Simulations:**
+
+```
+✓ This file IS useful for efficiency calculations
+
+  P_trans = F_hydro · V_COM ≠ 0
+
+  The global power balance is meaningful because:
+    - Body translates through fluid
+    - V_COM represents actual swimming speed
+    - F · V gives correct power exchange
+```
+
+**What this file provides for free swimming:**
+- ✅ Direct power calculation from global forces
+- ✅ Can use for efficiency (Method 1)
+- ✅ Matches local integral (Method 2) approximately
+
+---
+
 ## File Overview
 
 **Filename pattern:** `Eel2d_Power_spent_struct_no_0`, `Foil_Power_spent_struct_no_1`, ...
@@ -10,7 +74,9 @@
 
 ## Purpose
 
-This file contains the **mechanical power** expenditure of the swimming body. It represents the rate at which the body does work on the surrounding fluid.
+This file contains the **mechanical power** expenditure of the swimming body calculated using **global rigid-body kinematics**.
+
+⚠️ **Important:** This represents the power from rigid-body translation and rotation only, NOT deformational power. See the warning box above for when to use this vs local force-velocity integrals.
 
 ## File Format
 
