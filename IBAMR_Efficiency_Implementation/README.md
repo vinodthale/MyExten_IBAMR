@@ -12,18 +12,25 @@ C_T = F_T / (0.5 × ρ × u_p² × c)  [Thrust coefficient]
 C_L = F_L / (0.5 × ρ × u_p² × c)  [Lateral force coefficient]
 ```
 
-**Equation 8 - Quasipropulsive Efficiency (Tethered):**
+**Equation 8 - Quasipropulsive Efficiency:**
 ```
-η_QP = C_Tm / ∫ c_L(s,t) × V_body(s,t) dS
+η_QP = (C_Ds + C_Tm) / ∫ c_L(s,t) × V_body(s,t) dS
 ```
 
 Where:
+- **η_QP** = Quasipropulsive efficiency
+- **C_Ds** = Steady drag coefficient (for stationary body at same Re)
 - **C_Tm** = Time-averaged thrust coefficient
 - **c_L(s,t)** = Lateral force coefficient at position s, time t
 - **V_body(s,t)** = Lateral velocity at position s, time t
 - **ρ** = Fluid density
 - **u_p** = Propulsive (free-stream) velocity
 - **c** = Chord length
+
+**Note:** For tethered simulations, C_Ds can be obtained from:
+1. Separate simulation of stationary body at same Re
+2. Literature values for the same geometry
+3. Simplified form: η_QP ≈ C_Tm / P_in (if C_Ds << C_Tm)
 
 ---
 

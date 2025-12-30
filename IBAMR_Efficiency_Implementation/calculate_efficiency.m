@@ -189,14 +189,27 @@ fprintf('═══════════════════════�
 fprintf('STEP 7: Calculating quasipropulsive efficiency...\n');
 fprintf('═══════════════════════════════════════════════\n');
 
-% For tethered simulation: P_out = C_Tm
-% For free-swimming: P_out = C_Ds + C_Tm (where C_Ds is stationary drag)
-P_out = C_Tm;  % Tethered case
+% Steady drag coefficient (C_Ds)
+% This is the drag on a stationary body at the same Reynolds number
+% Options to obtain C_Ds:
+%   1. Run separate simulation with stationary body
+%   2. Use literature value for NACA0012 at Re=5000
+%   3. Set to 0 if neglecting (valid when C_Ds << C_Tm)
+
+C_Ds = 0.0;  % MODIFY THIS: Add your C_Ds value here
+             % For NACA0012 at Re=5000, C_Ds ≈ 0.01-0.02
+
+% Output power (Equation 8 numerator)
+% Full form: P_out = C_Ds + C_Tm
+% Simplified (if C_Ds negligible): P_out = C_Tm
+P_out = C_Ds + C_Tm;
 
 % Quasipropulsive efficiency
 eta_QP = P_out / P_in_mean;
 
-fprintf('  Numerator (P_out = C_Tm): %.6f\n', P_out);
+fprintf('  C_Ds (steady drag):       %.6f\n', C_Ds);
+fprintf('  C_Tm (thrust):            %.6f\n', C_Tm);
+fprintf('  Numerator (P_out = C_Ds + C_Tm): %.6f\n', P_out);
 fprintf('  Denominator (P_in):       %.6f\n', P_in_mean);
 fprintf('  η_QP:                     %.6f (%.2f%%)\n\n', eta_QP, eta_QP*100);
 
@@ -213,7 +226,9 @@ fprintf('║    C_Tm (thrust):      %+.6f                 ║\n', C_Tm);
 fprintf('║    C_Lm (lateral):     %+.6f                 ║\n', C_Lm);
 fprintf('╠════════════════════════════════════════════════╣\n');
 fprintf('║  EQUATION 8: Quasipropulsive Efficiency        ║\n');
-fprintf('║    P_out (numerator):  %.6f                  ║\n', P_out);
+fprintf('║    C_Ds (steady drag): %.6f                  ║\n', C_Ds);
+fprintf('║    C_Tm (thrust):      %.6f                  ║\n', C_Tm);
+fprintf('║    P_out = C_Ds+C_Tm:  %.6f                  ║\n', P_out);
 fprintf('║    P_in (denominator): %.6f                  ║\n', P_in_mean);
 fprintf('║    η_QP:               %.6f (%.2f%%)         ║\n', eta_QP, eta_QP*100);
 fprintf('╚════════════════════════════════════════════════╝\n');
@@ -274,6 +289,7 @@ fprintf('SAVING RESULTS\n');
 fprintf('═══════════════════════════════════════════════\n');
 
 results = struct();
+results.C_Ds = C_Ds;
 results.C_Tm = C_Tm;
 results.C_Lm = C_Lm;
 results.P_out = P_out;
