@@ -40,6 +40,10 @@
 #include <ibtk/muParserCartGridFunction.h>
 #include <ibtk/muParserRobinBcCoefs.h>
 
+// Additional includes for marker data output
+#include <fstream>
+#include <iomanip>
+
 // Set up application namespace declarations
 #include <ibamr/app_namespaces.h>
 
@@ -53,6 +57,14 @@ void output_data(Pointer<PatchHierarchy<NDIM> > patch_hierarchy,
                  const int iteration_num,
                  const double loop_time,
                  const string& data_dump_dirname);
+
+void write_marker_data(const double time,
+                       const std::string& filename,
+                       LDataManager* l_data_manager,
+                       const int level_num,
+                       const int struct_id,
+                       const int num_markers,
+                       const double ds);
 
 /*******************************************************************************
  * For each run, the input filename and restart information (if needed) must   *
@@ -594,6 +606,36 @@ main(int argc, char* argv[])
                             loop_time,
                             postproc_data_dump_dirname);
             }
+
+            // =====================================================
+            // OUTPUT MARKER DATA FOR EFFICIENCY CALCULATIONS
+            // Write per-marker forces and velocities for equations 7 & 8
+            // =====================================================
+            const int marker_output_interval = 10;  // Output every 10 iterations (adjust as needed)
+            if (iteration_num % marker_output_interval == 0 || last_step)
+            {
+                // Get hierarchy level (finest level for Lagrangian data)
+                const int finest_level = patch_hierarchy->getFinestLevelNumber();
+
+                // Get structure parameters to determine number of markers
+                const StructureParameters& struct_param_0 =
+                    ib_method_ops->getLDataManager()->getStructureParameters(0);
+                const std::vector<std::pair<int,int> >& idx_range_0 = struct_param_0.getLagIdxRange();
+                const int num_markers_0 = idx_range_0[finest_level].second - idx_range_0[finest_level].first;
+
+                // Calculate marker spacing (chord length / num markers)
+                const double chord_length = 1.0;  // From input file geometry
+                const double ds_0 = chord_length / (num_markers_0 - 1);
+
+                // Write marker data for structure 0 (Fish 1)
+                write_marker_data(loop_time,
+                                 "Hydrofoil_marker_data.txt",
+                                 ib_method_ops->getLDataManager(),
+                                 finest_level,
+                                 0,  // struct_id = 0 for first fish
+                                 num_markers_0,
+                                 ds_0);
+            }
         }
 
         // Cleanup Eulerian boundary condition specification objects (when
@@ -649,3 +691,106 @@ output_data(Pointer<PatchHierarchy<NDIM> > patch_hierarchy,
     VecDestroy(&X_lag_vec);
     return;
 } // output_data
+
+/**
+ * @brief Write per-marker force and velocity data to file for efficiency calculations
+ *
+ * This function extracts Lagrangian force and velocity data for each marker
+ * and writes it to a file. This data is needed to calculate equations 7 and 8:
+ * - Equation 7: Force coefficients C_T and C_L
+ * - Equation 8: Quasipropulsive efficiency η_QP
+ *
+ * @param time          Current simulation time
+ * @param filename      Output file name
+ * @param l_data_manager Pointer to Lagrangian data manager
+ * @param level_num     Hierarchy level number
+ * @param struct_id     Structure ID (0 for first fish, 1 for second, etc.)
+ * @param num_markers   Number of Lagrangian markers for this structure
+ * @param ds            Marker spacing (for arclength coordinate)
+ */
+void
+write_marker_data(const double time,
+                  const std::string& filename,
+                  LDataManager* l_data_manager,
+                  const int level_num,
+                  const int struct_id,
+                  const int num_markers,
+                  const double ds)
+{
+    // Open file in append mode (important for time series data)
+    std::ofstream outfile;
+    outfile.open(filename.c_str(), std::ios::app);
+
+    if (!outfile.is_open())
+    {
+        TBOX_ERROR("write_marker_data(): Cannot open marker data file: " << filename << std::endl);
+        return;
+    }
+
+    // Get Lagrangian force data (F) and velocity data (U) from data manager
+    Pointer<LData> F_data = l_data_manager->getLData("F", level_num);
+    Pointer<LData> U_data = l_data_manager->getLData("U", level_num);
+
+    // Get PETSc vectors
+    Vec F_petsc_vec = F_data->getVec();
+    Vec U_petsc_vec = U_data->getVec();
+
+    // Create Lagrangian vectors for scattering
+    Vec F_lag_vec, U_lag_vec;
+    VecDuplicate(F_petsc_vec, &F_lag_vec);
+    VecDuplicate(U_petsc_vec, &U_lag_vec);
+
+    // Scatter from PETSc to Lagrangian ordering
+    l_data_manager->scatterPETScToLagrangian(F_petsc_vec, F_lag_vec, level_num);
+    l_data_manager->scatterPETScToLagrangian(U_petsc_vec, U_lag_vec, level_num);
+
+    // Get array pointers for reading data
+    const double* F_array;
+    const double* U_array;
+    VecGetArrayRead(F_lag_vec, &F_array);
+    VecGetArrayRead(U_lag_vec, &U_array);
+
+    // Get the index range for this structure
+    const StructureParameters& struct_param = l_data_manager->getStructureParameters(struct_id);
+    const std::vector<std::pair<int,int> >& idx_range = struct_param.getLagIdxRange();
+    const int lag_idx_begin = idx_range[level_num].first;
+    const int lag_idx_end = idx_range[level_num].second;
+
+    // Write data for each marker belonging to this structure
+    int marker_count = 0;
+    for (int lag_idx = lag_idx_begin; lag_idx < lag_idx_end; ++lag_idx)
+    {
+        // Calculate arclength coordinate (assuming uniform marker spacing)
+        double s = marker_count * ds;
+
+        // Extract force components (2D: fx, fy)
+        // For 2D simulations, NDIM = 2
+        double fx = F_array[NDIM * lag_idx + 0];  // Streamwise force
+        double fy = F_array[NDIM * lag_idx + 1];  // Lateral force
+
+        // Extract velocity components (2D: vx, vy)
+        double vx = U_array[NDIM * lag_idx + 0];  // Streamwise velocity
+        double vy = U_array[NDIM * lag_idx + 1];  // Lateral velocity
+
+        // Write to file: time s fx fy vx vy
+        outfile << std::scientific << std::setprecision(12)
+                << time << " "
+                << s << " "
+                << fx << " "
+                << fy << " "
+                << vx << " "
+                << vy << "\n";
+
+        marker_count++;
+    }
+
+    // Restore arrays (important for PETSc)
+    VecRestoreArrayRead(F_lag_vec, &F_array);
+    VecRestoreArrayRead(U_lag_vec, &U_array);
+
+    // Cleanup
+    VecDestroy(&F_lag_vec);
+    VecDestroy(&U_lag_vec);
+    outfile.close();
+
+} // write_marker_data
