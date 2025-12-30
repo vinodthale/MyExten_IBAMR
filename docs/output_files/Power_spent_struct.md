@@ -51,11 +51,12 @@ This file contains the **mechanical power** expenditure of the swimming body. It
 
 **Translational Power:**
 ```
-P_trans = F⃗_hydro · V⃗_com
+P_trans = F_hydro · V_com
 
 Where:
-- F⃗_hydro: Hydrodynamic force on body
-- V⃗_com: Velocity of center of mass
+- F_hydro: Hydrodynamic force vector on body
+- V_com: Velocity vector of center of mass
+- · represents dot product
 
 In component form (2D):
 P_trans = Fx × Vx + Fy × Vy
@@ -63,11 +64,12 @@ P_trans = Fx × Vx + Fy × Vy
 
 **Rotational Power:**
 ```
-P_rot = T⃗ · ω⃗
+P_rot = T · ω
 
 Where:
-- T⃗: Torque on body
-- ω⃗: Angular velocity
+- T: Torque vector on body
+- ω: Angular velocity vector
+- · represents dot product
 
 In 2D:
 P_rot = Tz × ωz
@@ -85,25 +87,30 @@ P_total = P_trans + P_rot
 This file computes power using the **global** force and center-of-mass velocity:
 
 ```
-P_trans = ∑ F⃗_hydro · V⃗_com
+P_trans = F_hydro · V_com
 
 Step-by-step:
-1. Compute total hydrodynamic force: F⃗_hydro = ∫∫ (pressure + viscous stress) dA
-2. Get center of mass velocity: V⃗_com = dX⃗_com/dt
-3. Take dot product: P_trans = F⃗_hydro · V⃗_com
+1. Compute total hydrodynamic force:
+   F_hydro = ∫∫ (pressure + viscous stress) dA
+
+2. Get center of mass velocity:
+   V_com = dX_com/dt
+
+3. Take dot product:
+   P_trans = F_hydro · V_com
 ```
 
 **Where this is calculated in IBAMR:**
-- File: `ConstraintIBMethod` class
-- Method: `postprocessIntegrateData()`
-- Output: This file (`Power_spent_struct_no_N`)
+- **File:** `ConstraintIBMethod` class
+- **Method:** `postprocessIntegrateData()`
+- **Output:** This file (`Power_spent_struct_no_N`)
 
 #### Method 2: Local Force-Velocity Integral (Equation 8)
 
 For **propulsive efficiency** calculations, we use the **local** force-velocity product integrated over the body surface:
 
 ```
-P_in = ∫_body f⃗_local(s,t) · v⃗_local(s,t) ds
+P_in = ∫_body f_local(s,t) · v_local(s,t) ds
 
 Step-by-step:
 1. At each marker position s along the body
@@ -118,10 +125,14 @@ Step-by-step:
 η_QP = C_Tm / P_in
 
 Where:
+- η_QP = Quasipropulsive efficiency
 - C_Tm = Time-averaged thrust coefficient (dimensionless)
 - P_in = ∫ c_L(s,t) × V_body(s,t) ds (dimensionless)
 - c_L(s,t) = f_y(s,t) / (0.5 × ρ × u_p² × c)
 - V_body(s,t) = v_y(s,t) / u_p
+- ρ = fluid density
+- u_p = propulsive velocity
+- c = chord length
 ```
 
 **Where this is calculated in our implementation:**
@@ -166,23 +177,23 @@ eta_QP = P_out / P_in_mean;
 
 **Physical insight:**
 ```
-┌─────────────────────────────────────────────────────┐
-│  TETHERED HYDROFOIL POWER BALANCE                   │
-│                                                     │
-│  Body undulates → Local points move                │
-│     v_y(s,t) ≠ 0   (lateral velocity)              │
-│                                                     │
-│  But COM is fixed:                                  │
-│     V_com = 0   (tethered condition)               │
-│                                                     │
-│  Therefore:                                         │
-│     P_trans = F · V_com = F × 0 = 0  ✗             │
-│                                                     │
-│  But power is still required:                       │
-│     P_in = ∫ f_y × v_y ds > 0  ✓                   │
-│                                                     │
-│  This is the CORRECT input power for efficiency!   │
-└─────────────────────────────────────────────────────┘
+╔═════════════════════════════════════════════════════╗
+║  TETHERED HYDROFOIL POWER BALANCE                   ║
+║                                                     ║
+║  Body undulates → Local points move                 ║
+║     v_y(s,t) ≠ 0   (lateral velocity)              ║
+║                                                     ║
+║  But COM is fixed:                                  ║
+║     V_com = 0   (tethered condition)                ║
+║                                                     ║
+║  Therefore:                                         ║
+║     P_trans = F · V_com = F × 0 = 0  ✗ WRONG       ║
+║                                                     ║
+║  But power is still required:                       ║
+║     P_in = ∫ f_y × v_y ds > 0  ✓ CORRECT           ║
+║                                                     ║
+║  → This is the CORRECT input power for efficiency!  ║
+╚═════════════════════════════════════════════════════╝
 ```
 
 ## Physical Interpretation
@@ -218,11 +229,12 @@ eta_QP = P_out / P_in_mean;
 
 For tethered case:
 ```
-P_input = ∫ f⃗_internal · v⃗_local ds
+P_input = ∫ f_internal · v_local ds
 
 Where:
-- f⃗_internal: Internal forces from swimming
-- v⃗_local: Local velocity of body surface
+- f_internal: Internal forces vector from swimming
+- v_local: Local velocity vector of body surface
+- · represents dot product
 ```
 
 See [POWER_AND_EFFICIENCY_CALCULATIONS.md](../POWER_AND_EFFICIENCY_CALCULATIONS.md) for detailed power analysis.
