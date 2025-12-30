@@ -60,6 +60,14 @@ Where:
 
 In component form (2D):
 P_trans = Fx × Vx + Fy × Vy
+
+⚠️ IMPORTANT: This captures only RIGID-BODY translational power exchange.
+   For deforming bodies, the true mechanical power is:
+
+   P_total_mechanical = ∫_body f(s,t) · v(s,t) ds
+
+   which includes both rigid-body motion AND internal deformation work.
+   P_trans in this file omits deformational power contributions.
 ```
 
 **Rotational Power:**
@@ -122,10 +130,11 @@ Step-by-step:
 
 **For efficiency (Equation 8):**
 ```
-η_QP = C_Tm / P_in
+η_QP = (C_Ds + C_Tm) / P_in
 
 Where:
 - η_QP = Quasipropulsive efficiency
+- C_Ds = Steady drag coefficient (for stationary body at same Re)
 - C_Tm = Time-averaged thrust coefficient (dimensionless)
 - P_in = ∫ c_L(s,t) × V_body(s,t) ds (dimensionless)
 - c_L(s,t) = f_y(s,t) / (0.5 × ρ × u_p² × c)
@@ -133,6 +142,12 @@ Where:
 - ρ = fluid density
 - u_p = propulsive velocity
 - c = chord length
+
+NOTE: For tethered simulations where forward translation is prevented,
+      C_Ds can be obtained from:
+      1. Separate simulation of stationary body at same Re
+      2. Literature values for the same geometry
+      3. Simplified form: η_QP ≈ C_Tm / P_in (if C_Ds << C_Tm)
 ```
 
 **Where this is calculated in our implementation:**
@@ -232,9 +247,20 @@ For tethered case:
 P_input = ∫ f_internal · v_local ds
 
 Where:
-- f_internal: Internal forces vector from swimming
+- f_internal: Internal forces vector from swimming/actuation
 - v_local: Local velocity vector of body surface
 - · represents dot product
+
+Important sign convention:
+  f_internal = -f_hydro
+
+  The internal (muscle/actuator) forces oppose the hydrodynamic forces.
+  This is why P_input > 0: the body must do work against fluid resistance.
+
+  Equivalently:
+  P_input = -∫ f_hydro · v_local ds
+
+  where f_hydro is the force from fluid acting on the body (negative of internal).
 ```
 
 See [POWER_AND_EFFICIENCY_CALCULATIONS.md](../POWER_AND_EFFICIENCY_CALCULATIONS.md) for detailed power analysis.
@@ -454,13 +480,18 @@ plt.savefig('power_comparison.png', dpi=300)
 ### Non-Dimensional Power Coefficient
 
 ```python
-# Power coefficient
+# Power coefficient (non-dimensionalized by dynamic pressure × velocity × area)
 rho = 1000  # kg/m³
 U_inf = 1.0  # m/s
 chord = 0.1  # m
 
-C_P = P_total_mean / (rho * U_inf**3 * chord**2)
+# Correct scaling: C_P = P / (0.5 × ρ × U³ × c²)
+C_P = P_total_mean / (0.5 * rho * U_inf**3 * chord**2)
 print(f"\nPower coefficient C_P: {C_P:.6f}")
+
+# Physical meaning:
+# C_P represents power normalized by (dynamic pressure × velocity × area)
+# Reference: 0.5 × ρ × U_inf³ × chord² has units of Power
 ```
 
 ## Input File Configuration
