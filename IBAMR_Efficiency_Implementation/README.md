@@ -159,20 +159,41 @@ After running `calculate_efficiency.m`:
 
 ### Adjust Marker Output Frequency
 
-Edit `example.cpp` (around line 614):
-```cpp
-const int marker_output_interval = 10;  // Change this number
+**NEW: Now configurable in `input2d` file!**
+
+Edit `input2d` (near the top):
+```bash
+marker_output_interval = 1     // 1=every iteration, 10=every 10, etc.
 ```
 
-**Recommendations:**
-- **10** = Good balance (default)
-- **1** = Every iteration - WARNING: Very large files!
-- **50** = Less frequent - Smaller files, may miss dynamics
-- **100** = Minimal output - For long simulations
+**IMPORTANT: Synchronize with Force Output!**
 
-**File size estimates:**
-- Interval = 10, 10,000 timesteps: ~500 MB
-- Interval = 100, 10,000 timesteps: ~50 MB
+The force data (`Drag_CV_strct_id_0`) is controlled by:
+```bash
+ConstraintIBMethod {
+    PrintOutput {
+        output_interval = 1    // Force data written every iteration
+    }
+}
+```
+
+**For consistency, set `marker_output_interval` to match `output_interval`!**
+
+**Recommendations:**
+
+| Interval | When to Use | File Size (10k iterations) | Pros/Cons |
+|----------|-------------|---------------------------|-----------|
+| **1** | Best accuracy, matches force output | ~500 MB | ✅ Perfect sync with forces<br>⚠️ Large files |
+| **10** | Good balance | ~50 MB | ✅ Smaller files<br>⚠️ Less temporal resolution |
+| **50** | Long simulations | ~10 MB | ✅ Small files<br>❌ May miss dynamics |
+| **100** | Quick tests only | ~5 MB | ✅ Tiny files<br>❌ Poor temporal resolution |
+
+**File size calculation:**
+```
+Size ≈ (num_iterations / interval) × num_markers × 6 columns × 20 bytes
+     = (10,000 / 1) × 22,051 × 6 × 20
+     = ~530 MB for interval = 1
+```
 
 ### Modify Simulation Parameters
 
@@ -379,7 +400,62 @@ t_start_avg = 10.0;  % Increase if transient is long
 
 ---
 
-### Problem 5: Compilation errors
+### Problem 5: Inconsistent output intervals
+
+**Issue:** Marker data and force data have different time points
+
+**Symptoms:**
+- MATLAB interpolation warnings
+- Mismatch between number of force data points and marker data points
+- Difficulty aligning data for analysis
+
+**Cause:** `marker_output_interval` ≠ `output_interval` in PrintOutput
+
+**Solution:**
+
+**Check current settings:**
+```bash
+# In input2d file, look for:
+marker_output_interval = ?    # Line ~11
+# AND
+ConstraintIBMethod {
+    PrintOutput {
+        output_interval = ?   # Line ~91
+    }
+}
+```
+
+**Make them match:**
+```bash
+# If output_interval = 1, then set:
+marker_output_interval = 1
+
+# If you want less frequent output, change BOTH:
+marker_output_interval = 10
+output_interval = 10
+```
+
+**Verify synchronization after simulation:**
+```matlab
+% Load both files
+F_data = load('Drag_CV_strct_id_0');
+M_data = load('Hydrofoil_marker_data.txt');
+
+% Check time vectors
+t_force = F_data(:,1);
+t_marker = unique(M_data(:,1));
+
+% Should be equal (or very close)
+length(t_force)
+length(t_marker)
+
+% Check first few time values match
+[t_force(1:5), t_marker(1:5)]
+```
+
+---
+
+### Problem 6: Compilation errors
 
 **Error: "undefined reference to write_marker_data"**
 

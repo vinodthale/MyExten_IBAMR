@@ -610,8 +610,10 @@ main(int argc, char* argv[])
             // =====================================================
             // OUTPUT MARKER DATA FOR EFFICIENCY CALCULATIONS
             // Write per-marker forces and velocities for equations 7 & 8
+            // Synchronized with force output for consistency
             // =====================================================
-            const int marker_output_interval = 10;  // Output every 10 iterations (adjust as needed)
+            // Read marker output interval from input file (or use default)
+            const int marker_output_interval = input_db->getIntegerWithDefault("marker_output_interval", 1);
             if (iteration_num % marker_output_interval == 0 || last_step)
             {
                 // Get hierarchy level (finest level for Lagrangian data)
