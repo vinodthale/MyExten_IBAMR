@@ -56,6 +56,9 @@ P_trans = F⃗_hydro · V⃗_com
 Where:
 - F⃗_hydro: Hydrodynamic force on body
 - V⃗_com: Velocity of center of mass
+
+In component form (2D):
+P_trans = Fx × Vx + Fy × Vy
 ```
 
 **Rotational Power:**
@@ -65,11 +68,121 @@ P_rot = T⃗ · ω⃗
 Where:
 - T⃗: Torque on body
 - ω⃗: Angular velocity
+
+In 2D:
+P_rot = Tz × ωz
 ```
 
 **Total Power:**
 ```
 P_total = P_trans + P_rot
+```
+
+### Detailed Mathematical Formulation
+
+#### Method 1: Global Force-Velocity Product (This File)
+
+This file computes power using the **global** force and center-of-mass velocity:
+
+```
+P_trans = ∑ F⃗_hydro · V⃗_com
+
+Step-by-step:
+1. Compute total hydrodynamic force: F⃗_hydro = ∫∫ (pressure + viscous stress) dA
+2. Get center of mass velocity: V⃗_com = dX⃗_com/dt
+3. Take dot product: P_trans = F⃗_hydro · V⃗_com
+```
+
+**Where this is calculated in IBAMR:**
+- File: `ConstraintIBMethod` class
+- Method: `postprocessIntegrateData()`
+- Output: This file (`Power_spent_struct_no_N`)
+
+#### Method 2: Local Force-Velocity Integral (Equation 8)
+
+For **propulsive efficiency** calculations, we use the **local** force-velocity product integrated over the body surface:
+
+```
+P_in = ∫_body f⃗_local(s,t) · v⃗_local(s,t) ds
+
+Step-by-step:
+1. At each marker position s along the body
+2. Get local lateral force: f_y(s,t)
+3. Get local lateral velocity: v_y(s,t)
+4. Compute power density: p(s,t) = f_y(s,t) × v_y(s,t)
+5. Integrate over entire body: P_in = ∫ p(s,t) ds
+```
+
+**For efficiency (Equation 8):**
+```
+η_QP = C_Tm / P_in
+
+Where:
+- C_Tm = Time-averaged thrust coefficient (dimensionless)
+- P_in = ∫ c_L(s,t) × V_body(s,t) ds (dimensionless)
+- c_L(s,t) = f_y(s,t) / (0.5 × ρ × u_p² × c)
+- V_body(s,t) = v_y(s,t) / u_p
+```
+
+**Where this is calculated in our implementation:**
+
+**File:** `/IBAMR_Efficiency_Implementation/calculate_efficiency.m`
+
+**Line 154-155:** Compute power density
+```matlab
+% Power density: p(s,t) = c_L(s,t) × V_body(s,t)
+power_density = c_L .* V_body;
+```
+
+**Line 157-160:** Spatial integration
+```matlab
+% Integrate over space: P_in(t) = ∫ p(s,t) ds
+% Using trapezoidal rule
+ds = mean(diff(s_unique));
+P_in = trapz(s_unique, power_density, 2);  % Integrate along dimension 2 (space)
+```
+
+**Line 180:** Time-averaging
+```matlab
+P_in_mean = mean(P_in(idx_steady_marker));
+```
+
+**Line 197:** Efficiency calculation
+```matlab
+eta_QP = P_out / P_in_mean;
+```
+
+### Connection Between the Two Methods
+
+**For FREE SWIMMING:**
+- Method 1 (this file) and Method 2 should give **similar** results
+- Both represent work done on fluid
+- Small differences due to numerical integration methods
+
+**For TETHERED SWIMMING:**
+- Method 1 (this file): P_trans ≈ 0 (since V_com ≈ 0 when tethered)
+- Method 2 (Equation 8): P_in > 0 (local points still move!)
+- **Use Method 2 for efficiency calculations!**
+
+**Physical insight:**
+```
+┌─────────────────────────────────────────────────────┐
+│  TETHERED HYDROFOIL POWER BALANCE                   │
+│                                                     │
+│  Body undulates → Local points move                │
+│     v_y(s,t) ≠ 0   (lateral velocity)              │
+│                                                     │
+│  But COM is fixed:                                  │
+│     V_com = 0   (tethered condition)               │
+│                                                     │
+│  Therefore:                                         │
+│     P_trans = F · V_com = F × 0 = 0  ✗             │
+│                                                     │
+│  But power is still required:                       │
+│     P_in = ∫ f_y × v_y ds > 0  ✓                   │
+│                                                     │
+│  This is the CORRECT input power for efficiency!   │
+└─────────────────────────────────────────────────────┘
 ```
 
 ## Physical Interpretation
