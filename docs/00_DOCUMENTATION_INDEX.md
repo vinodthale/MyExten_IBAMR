@@ -88,7 +88,35 @@ calculate_rotational_momentum    = 0,0,1
 
 ---
 
-### 6. **NEW!** Tethered Body Forces
+### 6. **NEW!** Systematic Output File Documentation
+
+**Directory:** [`output_files/`](./output_files/README.md)
+
+**What it covers:**
+- Individual documentation for **each output file type**
+- Detailed file format specifications
+- Column-by-column descriptions
+- Python data analysis examples
+- Troubleshooting guides
+- Input file configuration
+
+**10 comprehensive files:**
+1. `Drag_CV_strct_id.md` - Total hydrodynamic force
+2. `Torque_CV_strct_id.md` - Total hydrodynamic torque
+3. `COM_coordinates.md` - Center of mass position
+4. `Trans_vel_struct.md` - Translational velocity
+5. `Rot_vel_struct.md` - Rotational velocity
+6. `MOI_struct.md` - Moment of inertia
+7. `Power_spent_struct.md` - Mechanical power
+8. `EULERIAN_MOMENTUM.md` - Fluid momentum
+9. `Drag_force_struct.md` - Structure drag (validation)
+10. `Torque_struct.md` - Structure torque (validation)
+
+**Read this for:** Understanding what each output file contains and how to analyze it
+
+---
+
+### 7. Tethered Body Forces
 
 **File:** [`README_TETHERED_BODY_FORCES.md`](./README_TETHERED_BODY_FORCES.md)
 
@@ -104,7 +132,7 @@ calculate_rotational_momentum    = 0,0,1
 
 ---
 
-### 7. **NEW!** Power and Efficiency Calculations
+### 8. **NEW!** Power and Efficiency Calculations
 
 **File:** [`POWER_AND_EFFICIENCY_CALCULATIONS.md`](./POWER_AND_EFFICIENCY_CALCULATIONS.md)
 
@@ -124,6 +152,29 @@ calculate_rotational_momentum    = 0,0,1
 ```
 η_i = P_out,i / P_in,i = C_Tm,i / ∫ c_L,i(s,t) V_body,i(s,t) ds
 ```
+
+---
+
+## 📁 Output Files Quick Reference
+
+**For detailed documentation on each output file, see:** [`output_files/`](./output_files/README.md)
+
+### Most Common Output Files
+
+| File Pattern | What It Contains | Documentation |
+|-------------|------------------|---------------|
+| `Drag_CV_strct_id_N` | Total hydrodynamic force | [Drag_CV_strct_id.md](./output_files/Drag_CV_strct_id.md) |
+| `Torque_CV_strct_id_N` | Total hydrodynamic torque | [Torque_CV_strct_id.md](./output_files/Torque_CV_strct_id.md) |
+| `<name>_COM_coordinates_struct_no_N` | Body position | [COM_coordinates.md](./output_files/COM_coordinates.md) |
+| `<name>_Trans_vel_struct_no_N` | Swimming velocity | [Trans_vel_struct.md](./output_files/Trans_vel_struct.md) |
+| `<name>_Rot_vel_struct_no_N` | Angular velocity | [Rot_vel_struct.md](./output_files/Rot_vel_struct.md) |
+| `<name>_Power_spent_struct_no_N` | Mechanical power | [Power_spent_struct.md](./output_files/Power_spent_struct.md) |
+| `<name>_MOI_struct_no_N` | Moment of inertia | [MOI_struct.md](./output_files/MOI_struct.md) |
+| `<name>_EULERIAN_MOMENTUM_struct_no_N` | Fluid momentum | [EULERIAN_MOMENTUM.md](./output_files/EULERIAN_MOMENTUM.md) |
+| `<name>_Drag_force_struct_no_N.curve` | Structure drag | [Drag_force_struct.md](./output_files/Drag_force_struct.md) |
+| `<name>_Torque_struct_no_N.curve` | Structure torque | [Torque_struct.md](./output_files/Torque_struct.md) |
+
+**Note:** `<name>` is your simulation base name (e.g., "Eel2d", "Foil"), `N` is structure ID (0, 1, 2, ...)
 
 ---
 
@@ -154,6 +205,10 @@ calculate_rotational_momentum    = 0,0,1
 #### "I'm a visual learner"
 → Read: [`FORCE_CALCULATION_VISUAL_SUMMARY.md`](./FORCE_CALCULATION_VISUAL_SUMMARY.md)
 → Has flowcharts and diagrams
+
+#### "What does this specific output file contain?"
+→ See: [`output_files/`](./output_files/README.md)
+→ Individual documentation for each file type
 
 #### "How do I compute propulsive efficiency?"
 → Read: [`POWER_AND_EFFICIENCY_CALCULATIONS.md`](./POWER_AND_EFFICIENCY_CALCULATIONS.md)
@@ -393,6 +448,7 @@ Quick reference to important source files:
 | Quick start | `README_FORCE_CALCULATION.md` | Overview and verification |
 | Power & efficiency | `POWER_AND_EFFICIENCY_CALCULATIONS.md` | η = P_out / P_in |
 | Leader/follower | `POWER_AND_EFFICIENCY_CALCULATIONS.md` | Multi-body interactions |
+| **Output files** | **`output_files/README.md`** | **Individual file documentation** |
 
 ---
 
@@ -451,9 +507,9 @@ Before running your simulation, make sure you:
 
 ---
 
-**Last updated:** 2025-12-25
-**Total documentation:** 7 comprehensive guides + 1 verification script
-**Total lines documented:** ~3,000+ lines of explanation
-**Source code coverage:** Complete force calculation and efficiency analysis pipeline
+**Last updated:** 2025-12-30
+**Total documentation:** 7 comprehensive guides + 10 output file references + 1 verification script
+**Total lines documented:** ~5,000+ lines of explanation
+**Source code coverage:** Complete force calculation, efficiency analysis, and all output files
 
 **Happy researching! 🐟🌊**
